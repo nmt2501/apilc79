@@ -20,7 +20,7 @@ let historyMD5 = [];
 let lastPhienMD5 = null;
 let lastDataMD5 = null;
 
-const MAX_HISTORY = 200;
+const MAX_HISTORY = 20;
 
 /* ================== TOOL ================== */
 const toTX = kq => (kq === "Tài" ? "T" : "X");
