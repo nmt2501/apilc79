@@ -25,72 +25,91 @@ const MAX_HISTORY = 20;
 /* ================== TOOL ================== */
 const toTX = kq => (kq === "Tài" ? "T" : "X");
 
-/* ================== BUILD RUNS ================== */
-function buildRuns(arr) {
-  const runs = [];
-  let cur = null, len = 0;
-
-  for (const v of arr) {
-    if (v !== cur) {
-      if (cur) runs.push({ val: cur, len });
-      cur = v;
-      len = 1;
-    } else len++;
-  }
-  if (cur) runs.push({ val: cur, len });
-  return runs;
-}
-
 /* ================== PATTERN STRING ================== */
 const buildPatternString = arr => arr.join("");
 
-/* ================== CLASSIFY PATTERN ================== */
-function classifyPattern(runs) {
-  if (runs.length < 3) return null;
-
-  const lastRuns = runs.slice(-5);
-  const lengths = lastRuns.map(r => r.len);
-  const values = lastRuns.map(r => r.val);
-  const alt = values.every((v,i)=>i===0||v!==values[i-1]);
-
-  if (lengths.every(l=>l===1) && alt) return "1_1_pattern";
-  if (lengths.every(l=>l===2) && alt) return "2_2_pattern";
-  if (lengths.every(l=>l===3) && alt) return "3_3_pattern";
-
-  if (lengths.join()==="2,1,2,1,2") return "2_1_2_pattern";
-  if (lengths.join()==="1,2,1,2,1") return "1_2_1_pattern";
-  if (lengths.join()==="3,2,3,2,3") return "3_2_3_pattern";
-  if (lengths.join()==="4,2,4,2,4") return "4_2_4_pattern";
-
-  const last = runs[runs.length-1];
-  if (last.len >= 5) return "long_run_pattern";
-
-  return null;
-}
-
-/* ================== DỰ ĐOÁN ================== */
-function predict(pattern, runs, lastTx) {
-  if (!pattern) return null;
-  const lastRun = runs[runs.length-1];
-
-  switch (pattern) {
-    case "1_1_pattern":
-      return lastTx === "T" ? "X" : "T";
-
-    case "2_2_pattern":
-    case "3_3_pattern":
-      if (lastRun.len >= parseInt(pattern[0]))
-        return lastRun.val === "T" ? "X" : "T";
-      return lastRun.val;
-
-    case "long_run_pattern":
-      if (lastRun.len > 7)
-        return lastRun.val === "T" ? "X" : "T";
-      return lastRun.val;
-
-    default:
-      return null;
+/* ================== THUẬT TOÁN SO PATTERN CHUỖI DÀI ================== */
+function predictFromPatternString(patternStr) {
+  if (!patternStr || patternStr.length < 6) {
+    return {
+      du_doan: null,
+      do_tin_cay: "0%",
+      thuat_toan: "du_lieu_it"
+    };
   }
+
+  // Build runs
+  const runs = [];
+  let cur = patternStr[0], len = 1;
+
+  for (let i = 1; i < patternStr.length; i++) {
+    if (patternStr[i] === cur) len++;
+    else {
+      runs.push({ val: cur, len });
+      cur = patternStr[i];
+      len = 1;
+    }
+  }
+  runs.push({ val: cur, len });
+
+  const last = runs[runs.length - 1];
+  const prev = runs[runs.length - 2];
+
+  let du_doan = last.val;
+  let base = 72;
+  let algo = "theo_cau";
+
+  /* ===== 1-1 ===== */
+  if (last.len === 1 && prev && prev.len === 1) {
+    du_doan = last.val === "T" ? "X" : "T";
+    base = 82;
+    algo = "1_1";
+  }
+
+  /* ===== 2-2 ===== */
+  else if (last.len === 2 && prev && prev.len === 2) {
+    du_doan = last.val === "T" ? "X" : "T";
+    base = 85;
+    algo = "2_2";
+  }
+
+  /* ===== 3-3 ===== */
+  else if (last.len === 3 && prev && prev.len === 3) {
+    du_doan = last.val === "T" ? "X" : "T";
+    base = 88;
+    algo = "3_3";
+  }
+
+  /* ===== BỆT DÀI ===== */
+  else if (last.len >= 5) {
+    du_doan = last.val === "T" ? "X" : "T";
+    base = 90;
+    algo = "bet_dai_gay";
+  }
+
+  /* ===== TĂNG DẦN ===== */
+  else if (prev && last.len === prev.len + 1) {
+    du_doan = last.val;
+    base = 80;
+    algo = "tang_dan";
+  }
+
+  /* ===== ĐỘ TIN CẬY ĐỘNG ===== */
+  let bonusLen = Math.min(last.len * 2, 6); // +0 → +6
+  let bonusHistory = Math.min(
+    Math.floor(patternStr.length / 10),
+    7
+  ); // +0 → +7
+
+  let confidence = base + bonusLen + bonusHistory;
+  if (confidence > 95) confidence = 95;
+  if (confidence < 72) confidence = 72;
+
+  return {
+    du_doan,
+    do_tin_cay: `${confidence}%`,
+    thuat_toan: algo
+  };
 }
 
 /* ================== AUTO FETCH TX ================== */
@@ -128,7 +147,8 @@ async function fetchMD5() {
 }
 
 /* ================== START BACKGROUND ================== */
-fetchTX();  fetchMD5();
+fetchTX();
+fetchMD5();
 setInterval(fetchTX, 8000);
 setInterval(fetchMD5, 8000);
 
@@ -137,12 +157,8 @@ function respond(res, data, history) {
   if (!data || history.length === 0)
     return res.json({ loading: true });
 
-  const runs = buildRuns(history);
-  const patternAlgo = classifyPattern(runs);
   const patternString = buildPatternString(history);
-
-  const lastTx = history[history.length-1];
-  const next = predict(patternAlgo, runs, lastTx) ?? lastTx;
+  const algo = predictFromPatternString(patternString);
 
   res.json({
     phien: data.phien,
@@ -153,10 +169,12 @@ function respond(res, data, history) {
     ket_qua: data.ket_qua,
     phien_hien_tai: data.phien_hien_tai,
 
-    pattern: patternString,
-    pattern_thuat_toan: patternAlgo,
-    du_doan: next === "T" ? "Tài" : "Xỉu",
-    do_tin_cay: patternAlgo ? "85%" : "70%",
+    pattern: patternString,                 // VD: TTTXXXTTX
+    thuat_toan: algo.thuat_toan,             // 1_1 / 2_2 / bet_dai...
+    du_doan: algo.du_doan
+      ? algo.du_doan === "T" ? "Tài" : "Xỉu"
+      : null,
+    do_tin_cay: algo.do_tin_cay,             // 72% → 95%
     history_length: history.length,
     server_time: Date.now()
   });
@@ -166,6 +184,8 @@ function respond(res, data, history) {
 app.get("/api/lc79/tx",  (req,res)=>respond(res,lastDataTX,historyTX));
 app.get("/api/lc79/md5", (req,res)=>respond(res,lastDataMD5,historyMD5));
 
-/* ================== START ================== */
+/* ================== START SERVER ================== */
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, ()=>console.log("🚀 LC79 API running", PORT));
+app.listen(PORT, () =>
+  console.log("🚀 LC79 API running on port", PORT)
+);
