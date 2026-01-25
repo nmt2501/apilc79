@@ -33,12 +33,12 @@ function predictFromPatternString(patternStr) {
   if (!patternStr || patternStr.length < 6) {
     return {
       du_doan: null,
-      do_tin_cay: "0%",
+      do_tin_cay: "72%",
       thuat_toan: "du_lieu_it"
     };
   }
 
-  // Build runs
+  /* ===== BUILD RUNS ===== */
   const runs = [];
   let cur = patternStr[0], len = 1;
 
@@ -55,7 +55,7 @@ function predictFromPatternString(patternStr) {
   const last = runs[runs.length - 1];
   const prev = runs[runs.length - 2];
 
-  let du_doan = last.val;
+  let du_doan = last.val;   // MẶC ĐỊNH: THEO CẦU
   let base = 72;
   let algo = "theo_cau";
 
@@ -80,14 +80,14 @@ function predictFromPatternString(patternStr) {
     algo = "3_3";
   }
 
-  /* ===== BỆT DÀI ===== */
-  else if (last.len >= 5) {
-    du_doan = last.val === "T" ? "X" : "T";
-    base = 90;
-    algo = "bet_dai_gay";
+  /* ===== BỆT (THEO BỆT) ===== */
+  else if (last.len >= 4) {
+    du_doan = last.val;          // ✅ THEO BỆT
+    base = 88;
+    algo = "bet_theo";
   }
 
-  /* ===== TĂNG DẦN ===== */
+  /* ===== TĂNG DẦN (1-2-3-4) ===== */
   else if (prev && last.len === prev.len + 1) {
     du_doan = last.val;
     base = 80;
@@ -95,11 +95,11 @@ function predictFromPatternString(patternStr) {
   }
 
   /* ===== ĐỘ TIN CẬY ĐỘNG ===== */
-  let bonusLen = Math.min(last.len * 2, 6); // +0 → +6
+  let bonusLen = Math.min(last.len * 2, 7);   // bệt càng dài càng cao
   let bonusHistory = Math.min(
     Math.floor(patternStr.length / 10),
-    7
-  ); // +0 → +7
+    8
+  );
 
   let confidence = base + bonusLen + bonusHistory;
   if (confidence > 95) confidence = 95;
