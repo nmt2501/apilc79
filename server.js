@@ -1,3 +1,4 @@
+
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
@@ -10,17 +11,16 @@ const API_TX  = "https://lc79md5.vercel.app/lc79/tx";
 const API_MD5 = "https://lc79md5.vercel.app/lc79/md5";
 
 /* ================== BIẾN TOÀN CỤC ================== */
-// TX
 let historyTX = [];
-let lastPhienTX = null;
-let lastDataTX = null;
-
-// MD5
 let historyMD5 = [];
+
+let lastPhienTX = null;
 let lastPhienMD5 = null;
+
+let lastDataTX = null;
 let lastDataMD5 = null;
 
-const MAX_HISTORY = 20;
+const MAX_HISTORY = 50;
 
 /* ================== TOOL ================== */
 const toTX = kq => (kq === "Tài" ? "T" : "X");
@@ -55,7 +55,7 @@ function predictFromPatternString(patternStr) {
   const last = runs[runs.length - 1];
   const prev = runs[runs.length - 2];
 
-  let du_doan = last.val;   // MẶC ĐỊNH: THEO CẦU
+  let du_doan = last.val;     // MẶC ĐỊNH: THEO
   let base = 72;
   let algo = "theo_cau";
 
@@ -81,13 +81,20 @@ function predictFromPatternString(patternStr) {
   }
 
   /* ===== BỆT (THEO BỆT) ===== */
-  else if (last.len >= 4) {
-    du_doan = last.val;          // ✅ THEO BỆT
+  else if (last.len >= 4 && last.len <= 6) {
+    du_doan = last.val;
     base = 88;
     algo = "bet_theo";
   }
 
-  /* ===== TĂNG DẦN (1-2-3-4) ===== */
+  /* ===== BỆT SÂU → BẺ ===== */
+  else if (last.len > 6) {
+    du_doan = last.val === "T" ? "X" : "T";
+    base = 92;
+    algo = "bet_be";
+  }
+
+  /* ===== TĂNG DẦN ===== */
   else if (prev && last.len === prev.len + 1) {
     du_doan = last.val;
     base = 80;
@@ -95,11 +102,8 @@ function predictFromPatternString(patternStr) {
   }
 
   /* ===== ĐỘ TIN CẬY ĐỘNG ===== */
-  let bonusLen = Math.min(last.len * 2, 7);   // bệt càng dài càng cao
-  let bonusHistory = Math.min(
-    Math.floor(patternStr.length / 10),
-    8
-  );
+  let bonusLen = Math.min(last.len * 2, 7);
+  let bonusHistory = Math.min(Math.floor(patternStr.length / 10), 8);
 
   let confidence = base + bonusLen + bonusHistory;
   if (confidence > 95) confidence = 95;
@@ -108,7 +112,8 @@ function predictFromPatternString(patternStr) {
   return {
     du_doan,
     do_tin_cay: `${confidence}%`,
-    thuat_toan: algo
+    thuat_toan: algo,
+    run_hien_tai: last.val.repeat(last.len)
   };
 }
 
@@ -116,7 +121,6 @@ function predictFromPatternString(patternStr) {
 async function fetchTX() {
   try {
     const { data } = await axios.get(API_TX, { timeout: 5000 });
-
     if (data.phien !== lastPhienTX) {
       lastPhienTX = data.phien;
       lastDataTX = data;
@@ -133,7 +137,6 @@ async function fetchTX() {
 async function fetchMD5() {
   try {
     const { data } = await axios.get(API_MD5, { timeout: 5000 });
-
     if (data.phien !== lastPhienMD5) {
       lastPhienMD5 = data.phien;
       lastDataMD5 = data;
@@ -154,11 +157,12 @@ setInterval(fetchMD5, 8000);
 
 /* ================== RESPONSE ================== */
 function respond(res, data, history) {
-  if (!data || history.length === 0)
+  if (!data || history.length === 0) {
     return res.json({ loading: true });
+  }
 
-  const patternString = buildPatternString(history);
-  const algo = predictFromPatternString(patternString);
+  const patternStr = buildPatternString(history);
+  const result = predictFromPatternString(patternStr);
 
   res.json({
     phien: data.phien,
@@ -169,23 +173,23 @@ function respond(res, data, history) {
     ket_qua: data.ket_qua,
     phien_hien_tai: data.phien_hien_tai,
 
-    pattern: patternString,                 // VD: TTTXXXTTX
-    thuat_toan: algo.thuat_toan,             // 1_1 / 2_2 / bet_dai...
-    du_doan: algo.du_doan
-      ? algo.du_doan === "T" ? "Tài" : "Xỉu"
-      : null,
-    do_tin_cay: algo.do_tin_cay,             // 72% → 95%
+    pattern: patternStr,
+    run_hien_tai: result.run_hien_tai,
+    thuat_toan: result.thuat_toan,
+    du_doan: result.du_doan === "T" ? "Tài" : "Xỉu",
+    do_tin_cay: result.do_tin_cay,
+
     history_length: history.length,
     server_time: Date.now()
   });
 }
 
 /* ================== ROUTES ================== */
-app.get("/api/lc79/tx",  (req,res)=>respond(res,lastDataTX,historyTX));
-app.get("/api/lc79/md5", (req,res)=>respond(res,lastDataMD5,historyMD5));
+app.get("/api/lc79/tx",  (req, res) => respond(res, lastDataTX, historyTX));
+app.get("/api/lc79/md5", (req, res) => respond(res, lastDataMD5, historyMD5));
 
-/* ================== START SERVER ================== */
+/* ================== START ================== */
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () =>
-  console.log("🚀 LC79 API running on port", PORT)
-);
+app.listen(PORT, () => {
+  console.log("🚀 LC79 API RUNNING ON PORT", PORT);
+});
