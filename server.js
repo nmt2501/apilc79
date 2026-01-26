@@ -5,121 +5,119 @@ const cors = require("cors");
 const app = express();
 app.use(cors());
 
-/* ================== API GỐC ================== */
+/* ================== API ================== */
 const API_TX  = "https://lc79md5.vercel.app/lc79/tx";
 const API_MD5 = "https://lc79md5.vercel.app/lc79/md5";
 
 /* ================== BIẾN ================== */
 let historyTX = [];
 let historyMD5 = [];
-let lastPhienTX = null;
-let lastPhienMD5 = null;
-let lastDataTX = null;
-let lastDataMD5 = null;
+let lastTX = null;
+let lastMD5 = null;
+let phienTX = null;
+let phienMD5 = null;
 
-const MAX_HISTORY = 50;
+const MAX_HISTORY = 80;
+const flip = v => (v === "T" ? "X" : "T");
 
-/* ================== TOOL ================== */
-const toTX = kq => (kq === "Tài" ? "T" : "X");
-const buildPatternString = arr => arr.join("");
-
-/* ================== BUILD RUNS ================== */
+/* ================== BUILD RUN ================== */
 function buildRuns(pattern) {
-  const runs = [];
+  let runs = [];
   let cur = pattern[0], len = 1;
 
   for (let i = 1; i < pattern.length; i++) {
     if (pattern[i] === cur) len++;
     else {
-      runs.push({ val: cur, len });
+      runs.push({ v: cur, l: len });
       cur = pattern[i];
       len = 1;
     }
   }
-  runs.push({ val: cur, len });
+  runs.push({ v: cur, l: len });
   return runs;
 }
 
-/* ================== SO KHỚP PATTERN LỊCH SỬ ================== */
-function patternMatchScore(pattern, lookBack = 8) {
-  if (pattern.length < lookBack + 1) return null;
+const last7Runs = runs => runs.slice(-7);
 
-  const target = pattern.slice(-lookBack);
-  let countT = 0;
-  let countX = 0;
+/* ================== AUTO THEO / BẺ ================== */
+function autoCauDecision(runs) {
+  const last = runs[runs.length - 1];
+  let votes = [];
 
-  for (let i = 0; i < pattern.length - lookBack; i++) {
-    const sub = pattern.slice(i, i + lookBack);
-    if (sub === target) {
-      const next = pattern[i + lookBack];
-      if (next === "T") countT++;
-      if (next === "X") countX++;
+  if (last.l >= 3 && last.l <= 6)
+    votes.push({ v: last.v, s: 86, t: "Theo cầu bệt" });
+
+  if (last.l >= 7)
+    votes.push({ v: flip(last.v), s: 94, t: "Bẻ cầu sâu" });
+
+  if (runs.length >= 3) {
+    const a = runs[runs.length-3].l;
+    const b = runs[runs.length-2].l;
+    const c = last.l;
+    if (b >= 5 && (a === 1 || c === 1))
+      votes.push({ v: flip(last.v), s: 90, t: "Gãy cầu" });
+  }
+
+  return votes;
+}
+
+/* ================== FULL PATTERN ================== */
+const PATTERN_ALGOS = [
+  [1,1],[2,2],[3,3],[4,4],[5,5],
+  [1,2,1],[2,1,2],[1,2,2],
+  [1,3,1],[2,3,2],[3,2,3],
+  [1,3,3],[1,4,4],[1,5,5],[1,6,6],
+  [6,1,6],[1,2,3],[1,2,4],
+  [2,2,1],[3,3,2],[4,4,2],[5,5,4]
+];
+
+function matchLoose(runs, p) {
+  if (runs.length < p.length) return false;
+  let diff = 0;
+  for (let i = 0; i < p.length; i++) {
+    diff += Math.abs(
+      runs[runs.length - p.length + i].l - p[i]
+    );
+  }
+  return diff <= 2; // KHỚP LỎNG
+}
+
+/* ================== DỰ ĐOÁN ================== */
+function predict(pattern) {
+  if (!pattern || pattern.length < 6) return null;
+
+  const runs = last7Runs(buildRuns(pattern));
+  const last = runs[runs.length - 1];
+  let votes = [];
+
+  votes.push(...autoCauDecision(runs));
+
+  for (const p of PATTERN_ALGOS) {
+    if (matchLoose(runs, p)) {
+      votes.push({
+        v: flip(last.v),
+        s: 82 + p.length,
+        t: `Pattern ${p.join("-")}`
+      });
     }
   }
 
-  const total = countT + countX;
-  if (total === 0) return null;
+  if (!votes.length) return null;
 
-  return {
-    du_doan: countT > countX ? "T" : "X",
-    confidence: Math.min(90, 70 + total * 4),
-    detail: `match_${total}`
-  };
-}
-
-/* ================== THUẬT TOÁN CHÍNH ================== */
-function predictFromPatternString(pattern) {
-  if (!pattern || pattern.length < 6) return null;
-
-  const runs = buildRuns(pattern);
-  const last = runs[runs.length - 1];
-  const prev = runs[runs.length - 2];
-  const prev2 = runs[runs.length - 3];
-
-  let votes = [];
-  let logs = [];
-
-  /* ===== RUN PATTERN ===== */
-  if (last.len === 1 && prev?.len === 1) {
-    votes.push({ v: last.val === "T" ? "X" : "T", s: 82, a: "1_1" });
-  }
-  if (last.len === 2 && prev?.len === 2) {
-    votes.push({ v: last.val === "T" ? "X" : "T", s: 85, a: "2_2" });
-  }
-  if (last.len >= 4 && last.len <= 6) {
-    votes.push({ v: last.val, s: 88, a: "bet_theo" });
-  }
-  if (last.len > 6) {
-    votes.push({ v: last.val === "T" ? "X" : "T", s: 92, a: "bet_be" });
-  }
-
-  /* ===== PATTERN MATCH ===== */
-  const match = patternMatchScore(pattern, 8);
-  if (match) {
-    votes.push({ v: match.du_doan, s: match.confidence, a: match.detail });
-  }
-
-  if (votes.length === 0) return null;
-
-  /* ===== TỔNG HỢP ĐIỂM ===== */
-  let score = { T: 0, X: 0 };
+  let score = { T:0, X:0 };
   votes.forEach(v => score[v.v] += v.s);
 
   const du_doan = score.T > score.X ? "T" : "X";
-  const maxScore = Math.max(score.T, score.X);
-
-  let confidence = Math.min(
-    95,
-    Math.round(maxScore / votes.length)
-  );
-
-  logs = votes.map(v => v.a).join(",");
+  const confidence = Math.min(96, Math.max(72,
+    Math.round(Math.max(score.T, score.X) / votes.length)
+  ));
 
   return {
     du_doan,
     do_tin_cay: `${confidence}%`,
-    thuat_toan: logs,
-    run_hien_tai: last.val.repeat(last.len)
+    run_7: runs.map(r => r.l).join("-"),
+    chien_luoc: votes.map(v => v.t).join(" | "),
+    so_phieu: votes.length
   };
 }
 
@@ -127,10 +125,10 @@ function predictFromPatternString(pattern) {
 async function fetchTX() {
   try {
     const { data } = await axios.get(API_TX);
-    if (data.phien !== lastPhienTX) {
-      lastPhienTX = data.phien;
-      lastDataTX = data;
-      historyTX.push(toTX(data.ket_qua));
+    if (data.phien !== phienTX) {
+      phienTX = data.phien;
+      lastTX = data;
+      historyTX.push(data.ket_qua === "Tài" ? "T" : "X");
       if (historyTX.length > MAX_HISTORY) historyTX.shift();
     }
   } catch {}
@@ -139,47 +137,36 @@ async function fetchTX() {
 async function fetchMD5() {
   try {
     const { data } = await axios.get(API_MD5);
-    if (data.phien !== lastPhienMD5) {
-      lastPhienMD5 = data.phien;
-      lastDataMD5 = data;
-      historyMD5.push(toTX(data.ket_qua));
+    if (data.phien !== phienMD5) {
+      phienMD5 = data.phien;
+      lastMD5 = data;
+      historyMD5.push(data.ket_qua === "Tài" ? "T" : "X");
       if (historyMD5.length > MAX_HISTORY) historyMD5.shift();
     }
   } catch {}
 }
 
-fetchTX();
-fetchMD5();
 setInterval(fetchTX, 8000);
 setInterval(fetchMD5, 8000);
 
-/* ================== RESPONSE ================== */
+/* ================== ROUTES ================== */
 function respond(res, data, history) {
-  if (!data || history.length < 6) {
-    return res.json({ loading: true });
-  }
-
-  const pattern = buildPatternString(history);
-  const result = predictFromPatternString(pattern);
+  const pattern = history.join("");
+  const r = predict(pattern);
 
   res.json({
-    phien: data.phien,
-    ket_qua: data.ket_qua,
+    phien: data?.phien || null,
+    ket_qua: data?.ket_qua || null,
     pattern,
-    du_doan: result ? (result.du_doan === "T" ? "Tài" : "Xỉu") : null,
-    do_tin_cay: result?.do_tin_cay || null,
-    thuat_toan: result?.thuat_toan || null,
-    run_hien_tai: result?.run_hien_tai || null,
-    server_time: Date.now()
+    du_doan: r ? (r.du_doan === "T" ? "Tài" : "Xỉu") : null,
+    do_tin_cay: r?.do_tin_cay || null,
+    run_7: r?.run_7 || null,
+    chien_luoc: r?.chien_luoc || null,
+    so_phieu: r?.so_phieu || 0
   });
 }
 
-/* ================== ROUTES ================== */
-app.get("/api/lc79/tx",  (req, res) => respond(res, lastDataTX, historyTX));
-app.get("/api/lc79/md5", (req, res) => respond(res, lastDataMD5, historyMD5));
+app.get("/api/lc79/tx",  (req,res)=>respond(res,lastTX,historyTX));
+app.get("/api/lc79/md5", (req,res)=>respond(res,lastMD5,historyMD5));
 
-/* ================== START ================== */
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log("🚀 LC79 API RUNNING", PORT);
-});
+app.listen(3000, ()=>console.log("🔥 FULL PATTERN + AUTO CẦU RUNNING"));
