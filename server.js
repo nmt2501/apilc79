@@ -157,6 +157,8 @@ function respond(res, data, history) {
   res.json({
     phien: data?.phien || null,
     ket_qua: data?.ket_qua || null,
+    phien_hien_tai: data?.phien_hien_tai
+      
     pattern,
     du_doan: r ? (r.du_doan === "T" ? "Tài" : "Xỉu") : null,
     do_tin_cay: r?.do_tin_cay || null,
