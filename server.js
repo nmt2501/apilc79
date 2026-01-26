@@ -54,33 +54,82 @@ function predictFromPatternString(patternStr) {
 
   const last = runs[runs.length - 1];
   const prev = runs[runs.length - 2];
+  const prev2 = runs[runs.length - 3];
 
-  let du_doan = last.val;     // MẶC ĐỊNH: THEO
+  let du_doan = last.val;   // mặc định THEO
   let base = 72;
   let algo = "theo_cau";
 
   /* ===== 1-1 ===== */
-  if (last.len === 1 && prev && prev.len === 1) {
+  if (last.len === 1 && prev?.len === 1) {
     du_doan = last.val === "T" ? "X" : "T";
     base = 82;
     algo = "1_1";
   }
 
   /* ===== 2-2 ===== */
-  else if (last.len === 2 && prev && prev.len === 2) {
+  else if (last.len === 2 && prev?.len === 2) {
     du_doan = last.val === "T" ? "X" : "T";
     base = 85;
     algo = "2_2";
   }
 
   /* ===== 3-3 ===== */
-  else if (last.len === 3 && prev && prev.len === 3) {
+  else if (last.len === 3 && prev?.len === 3) {
     du_doan = last.val === "T" ? "X" : "T";
     base = 88;
     algo = "3_3";
   }
 
-  /* ===== BỆT (THEO BỆT) ===== */
+  /* ===== 1-2-1 ===== */
+  else if (
+    prev2 &&
+    prev2.len === 1 &&
+    prev.len === 2 &&
+    last.len === 1
+  ) {
+    du_doan = last.val === "T" ? "X" : "T";
+    base = 86;
+    algo = "1_2_1";
+  }
+
+  /* ===== 1-2-2 ===== */
+  else if (
+    prev2 &&
+    prev2.len === 1 &&
+    prev.len === 2 &&
+    last.len === 2
+  ) {
+    du_doan = last.val === "T" ? "X" : "T";
+    base = 87;
+    algo = "1_2_2";
+  }
+
+  /* ===== 1-3-3 ===== */
+  else if (
+    prev2 &&
+    prev2.len === 1 &&
+    prev.len === 3 &&
+    last.len === 3
+  ) {
+    du_doan = last.val === "T" ? "X" : "T";
+    base = 90;
+    algo = "1_3_3";
+  }
+
+  /* ===== 2-1-2 ===== */
+  else if (
+    prev2 &&
+    prev2.len === 2 &&
+    prev.len === 1 &&
+    last.len === 2
+  ) {
+    du_doan = last.val === "T" ? "X" : "T";
+    base = 88;
+    algo = "2_1_2";
+  }
+
+  /* ===== BỆT ===== */
   else if (last.len >= 4 && last.len <= 6) {
     du_doan = last.val;
     base = 88;
@@ -115,7 +164,7 @@ function predictFromPatternString(patternStr) {
     thuat_toan: algo,
     run_hien_tai: last.val.repeat(last.len)
   };
-}
+    }
 
 /* ================== AUTO FETCH TX ================== */
 async function fetchTX() {
