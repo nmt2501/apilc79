@@ -5,15 +5,17 @@ const cors = require("cors");
 const app = express();
 app.use(cors());
 
-/* ================== API ================== */
+/* ================== API GỐC ================== */
 const API_TX  = "https://lc79md5.vercel.app/lc79/tx";
 const API_MD5 = "https://lc79md5.vercel.app/lc79/md5";
 
 /* ================== BIẾN ================== */
 let historyTX = [];
 let historyMD5 = [];
+
 let lastTX = null;
 let lastMD5 = null;
+
 let phienTX = null;
 let phienMD5 = null;
 
@@ -23,7 +25,8 @@ const flip = v => (v === "T" ? "X" : "T");
 /* ================== BUILD RUN ================== */
 function buildRuns(pattern) {
   let runs = [];
-  let cur = pattern[0], len = 1;
+  let cur = pattern[0];
+  let len = 1;
 
   for (let i = 1; i < pattern.length; i++) {
     if (pattern[i] === cur) len++;
@@ -44,24 +47,27 @@ function autoCauDecision(runs) {
   const last = runs[runs.length - 1];
   let votes = [];
 
-  if (last.l >= 3 && last.l <= 6)
+  if (last.l >= 3 && last.l <= 6) {
     votes.push({ v: last.v, s: 86, t: "Theo cầu bệt" });
+  }
 
-  if (last.l >= 7)
+  if (last.l >= 7) {
     votes.push({ v: flip(last.v), s: 94, t: "Bẻ cầu sâu" });
+  }
 
   if (runs.length >= 3) {
-    const a = runs[runs.length-3].l;
-    const b = runs[runs.length-2].l;
+    const a = runs[runs.length - 3].l;
+    const b = runs[runs.length - 2].l;
     const c = last.l;
-    if (b >= 5 && (a === 1 || c === 1))
+    if (b >= 5 && (a === 1 || c === 1)) {
       votes.push({ v: flip(last.v), s: 90, t: "Gãy cầu" });
+    }
   }
 
   return votes;
 }
 
-/* ================== FULL PATTERN ================== */
+/* ================== PATTERN ================== */
 const PATTERN_ALGOS = [
   [1,1],[2,2],[3,3],[4,4],[5,5],
   [1,2,1],[2,1,2],[1,2,2],
@@ -79,7 +85,7 @@ function matchLoose(runs, p) {
       runs[runs.length - p.length + i].l - p[i]
     );
   }
-  return diff <= 2; // KHỚP LỎNG
+  return diff <= 2; // khớp lỏng
 }
 
 /* ================== DỰ ĐOÁN ================== */
@@ -104,13 +110,14 @@ function predict(pattern) {
 
   if (!votes.length) return null;
 
-  let score = { T:0, X:0 };
+  let score = { T: 0, X: 0 };
   votes.forEach(v => score[v.v] += v.s);
 
   const du_doan = score.T > score.X ? "T" : "X";
-  const confidence = Math.min(96, Math.max(72,
-    Math.round(Math.max(score.T, score.X) / votes.length)
-  ));
+  const confidence = Math.min(
+    96,
+    Math.max(72, Math.round(Math.max(score.T, score.X) / votes.length))
+  );
 
   return {
     du_doan,
@@ -124,10 +131,10 @@ function predict(pattern) {
 /* ================== FETCH ================== */
 async function fetchTX() {
   try {
-    const { data } = await axios.get(API_TX);
+    const { data } = await axios.get(API_TX, { timeout: 5000 });
     if (data.phien !== phienTX) {
       phienTX = data.phien;
-      lastTX = data;
+      lastTX = data; // giữ nguyên object gốc
       historyTX.push(data.ket_qua === "Tài" ? "T" : "X");
       if (historyTX.length > MAX_HISTORY) historyTX.shift();
     }
@@ -136,7 +143,7 @@ async function fetchTX() {
 
 async function fetchMD5() {
   try {
-    const { data } = await axios.get(API_MD5);
+    const { data } = await axios.get(API_MD5, { timeout: 5000 });
     if (data.phien !== phienMD5) {
       phienMD5 = data.phien;
       lastMD5 = data;
@@ -149,26 +156,38 @@ async function fetchMD5() {
 setInterval(fetchTX, 8000);
 setInterval(fetchMD5, 8000);
 
-/* ================== ROUTES ================== */
+/* ================== RESPONSE ================== */
 function respond(res, data, history) {
   const pattern = history.join("");
   const r = predict(pattern);
 
   res.json({
-    phien: data?.phien || null,
-    ket_qua: data?.ket_qua || null,
-    phien_hien_tai: data?.phien_hien_tai
-      
+    phien: data?.phien ?? null,
+    phien_hien_tai: data?.phien_hien_tai ?? null,
+    ket_qua: data?.ket_qua ?? null,
+
+    xuc_xac_1: data?.xuc_xac_1 ?? null,
+    xuc_xac_2: data?.xuc_xac_2 ?? null,
+    xuc_xac_3: data?.xuc_xac_3 ?? null,
+    tong: data?.tong ?? null,
+
     pattern,
     du_doan: r ? (r.du_doan === "T" ? "Tài" : "Xỉu") : null,
-    do_tin_cay: r?.do_tin_cay || null,
-    run_7: r?.run_7 || null,
-    chien_luoc: r?.chien_luoc || null,
-    so_phieu: r?.so_phieu || 0
+    do_tin_cay: r?.do_tin_cay ?? null,
+    run_7: r?.run_7 ?? null,
+    chien_luoc: r?.chien_luoc ?? null,
+    so_phieu: r?.so_phieu ?? 0,
+
+    server_time: Date.now()
   });
 }
 
-app.get("/api/lc79/tx",  (req,res)=>respond(res,lastTX,historyTX));
-app.get("/api/lc79/md5", (req,res)=>respond(res,lastMD5,historyMD5));
+/* ================== ROUTES ================== */
+app.get("/api/lc79/tx",  (req, res) => respond(res, lastTX, historyTX));
+app.get("/api/lc79/md5", (req, res) => respond(res, lastMD5, historyMD5));
 
-app.listen(3000, ()=>console.log("🔥 FULL PATTERN + AUTO CẦU RUNNING"));
+/* ================== START ================== */
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log("🚀 LC79 API RUNNING ON PORT", PORT);
+});
