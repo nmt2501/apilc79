@@ -19,7 +19,7 @@ let lastMD5 = null;
 let lastPhienTX = null;
 let lastPhienMD5 = null;
 
-const MAX_HISTORY = 80;
+const MAX_HISTORY = 25;
 
 /* ================== STATE CHƠI TAY ================== */
 let state = {
