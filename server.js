@@ -49,6 +49,63 @@ function buildCau(pattern, take = 3) {
   return runs.slice(-take).map(r => r.l).join("-");
 }
 
+/* ================== THUẬT TOÁN CHUẨN ================== */
+function predictAdvanced(pattern) {
+  if (!pattern || pattern.length < 7) return null;
+
+  const runs = buildRuns(pattern).slice(-7);
+  const lens = runs.map(r => r.l);
+  const last = runs[runs.length - 1];
+
+  let action = null;
+  let du_doan = null;
+  let score = 60;
+
+  const cau = lens.slice(-3).join("-");
+
+  // ===== BỆT DÀI =====
+  if (last.l >= 4) {
+    action = "BE";
+    du_doan = last.v === "T" ? "X" : "T";
+    score += last.l * 5;
+  }
+
+  // ===== CẦU ĐỀU =====
+  else if (
+    lens[lens.length - 1] === lens[lens.length - 2] &&
+    lens[lens.length - 2] === lens[lens.length - 3]
+  ) {
+    action = "THEO";
+    du_doan = last.v;
+    score += 18;
+  }
+
+  // ===== CẦU 1-1 =====
+  else if (last.l === 1 && lens[lens.length - 2] === 1) {
+    action = "BE";
+    du_doan = last.v === "T" ? "X" : "T";
+    score += 12;
+  }
+
+  // ===== CẦU 1-3-1 / 3-1-1 =====
+  else if (cau === "1-3-1" || cau === "3-1-1") {
+    action = "BE";
+    du_doan = last.v === "T" ? "X" : "T";
+    score += 20;
+  }
+
+  if (!du_doan) return null;
+
+  score = Math.min(92, Math.max(72, score));
+
+  return {
+    du_doan: du_doan === "T" ? "Tài" : "Xỉu",
+    do_tin_cay: `${score}%`,
+    cau,
+    chien_luoc: action === "THEO" ? "Theo cầu" : "Bẻ cầu"
+  };
+}
+
 /* ================== FETCH TX ================== */
 async function fetchTX() {
   try {
@@ -60,7 +117,7 @@ async function fetchTX() {
       if (historyTX.length > MAX_HISTORY) historyTX.shift();
       console.log("TX ▶", data.phien, data.ket_qua);
     }
-  } catch (e) {
+  } catch {
     console.log("TX ERROR");
   }
 }
@@ -76,7 +133,7 @@ async function fetchMD5() {
       if (historyMD5.length > MAX_HISTORY) historyMD5.shift();
       console.log("MD5 ▶", data.phien, data.ket_qua);
     }
-  } catch (e) {
+  } catch {
     console.log("MD5 ERROR");
   }
 }
@@ -90,6 +147,7 @@ setInterval(fetchMD5, 8000);
 /* ================== API TX ================== */
 app.get("/api/lc79/tx", (req, res) => {
   const pattern = historyTX.join("");
+  const pred = predictAdvanced(pattern);
 
   res.json({
     phien: lastTX?.phien ?? null,
@@ -101,11 +159,11 @@ app.get("/api/lc79/tx", (req, res) => {
 
     phien_hien_tai: lastTX ? lastTX.phien + 1 : null,
 
-    du_doan: null,
-    do_tin_cay: null,
+    du_doan: pred?.du_doan ?? null,
+    do_tin_cay: pred?.do_tin_cay ?? null,
 
     pattern,
-    cau: buildCau(pattern),
+    cau: pred?.cau ?? buildCau(pattern),
 
     id: "BI NHOI - LC79 VIP PRO"
   });
@@ -114,6 +172,7 @@ app.get("/api/lc79/tx", (req, res) => {
 /* ================== API MD5 ================== */
 app.get("/api/lc79/md5", (req, res) => {
   const pattern = historyMD5.join("");
+  const pred = predictAdvanced(pattern);
 
   res.json({
     phien: lastMD5?.phien ?? null,
@@ -125,11 +184,11 @@ app.get("/api/lc79/md5", (req, res) => {
 
     phien_hien_tai: lastMD5 ? lastMD5.phien + 1 : null,
 
-    du_doan: null,
-    do_tin_cay: null,
+    du_doan: pred?.du_doan ?? null,
+    do_tin_cay: pred?.do_tin_cay ?? null,
 
     pattern,
-    cau: buildCau(pattern),
+    cau: pred?.cau ?? buildCau(pattern),
 
     id: "BI NHOI - LC79 VIP PRO"
   });
