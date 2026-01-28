@@ -69,12 +69,34 @@ function autoCauDecision(runs) {
 
 /* ================== PATTERN ================== */
 const PATTERN_ALGOS = [
-  [1,1],[2,2],[3,3],[4,4],[5,5],
-  [1,2,1],[2,1,2],[1,2,2],
-  [1,3,1],[2,3,2],[3,2,3],
-  [1,3,3],[1,4,4],[1,5,5],[1,6,6],
-  [6,1,6],[1,2,3],[1,2,4],
-  [2,2,1],[3,3,2],[4,4,2],[5,5,4]
+  { p:[1,1], type:"BE", score:82 },
+  { p:[2,2], type:"THEO", score:86 },
+  { p:[3,3], type:"THEO", score:88 },
+  { p:[4,4], type:"THEO", score:90 },
+  { p:[5,5], type:"THEO", score:92 },
+
+  { p:[1,2,1], type:"BE", score:88 },
+  { p:[2,1,2], type:"BE", score:88 },
+  { p:[1,2,2], type:"THEO", score:86 },
+
+  { p:[1,3,1], type:"BE", score:90 },
+  { p:[2,3,2], type:"BE", score:90 },
+  { p:[3,2,3], type:"BE", score:90 },
+
+  { p:[1,3,3], type:"THEO", score:90 },
+  { p:[1,4,4], type:"THEO", score:92 },
+  { p:[1,5,5], type:"THEO", score:94 },
+  { p:[1,6,6], type:"THEO", score:95 },
+
+  { p:[6,1,6], type:"BE", score:94 },
+
+  { p:[1,2,3], type:"THEO", score:84 },
+  { p:[1,2,4], type:"THEO", score:86 },
+
+  { p:[2,2,1], type:"BE", score:88 },
+  { p:[3,3,2], type:"BE", score:90 },
+  { p:[4,4,2], type:"BE", score:92 },
+  { p:[5,5,4], type:"BE", score:94 }
 ];
 
 function matchLoose(runs, p) {
@@ -94,37 +116,44 @@ function predict(pattern) {
 
   const runs = last7Runs(buildRuns(pattern));
   const last = runs[runs.length - 1];
-  let votes = [];
 
-  votes.push(...autoCauDecision(runs));
+  let voteTheo = 0;
+  let voteBe = 0;
+  let reasons = [];
 
-  for (const p of PATTERN_ALGOS) {
-    if (matchLoose(runs, p)) {
-      votes.push({
-        v: flip(last.v),
-        s: 82 + p.length,
-        t: `Pattern ${p.join("-")}`
-      });
+  for (const algo of PATTERN_ALGOS) {
+    if (matchLoose(runs, algo.p)) {
+      if (algo.type === "THEO") {
+        voteTheo += algo.score;
+        reasons.push(`Theo ${algo.p.join("-")}`);
+      } else {
+        voteBe += algo.score;
+        reasons.push(`Bẻ ${algo.p.join("-")}`);
+      }
     }
   }
 
-  if (!votes.length) return null;
+  // fallback theo cầu nếu không khớp pattern
+  if (voteTheo === 0 && voteBe === 0) {
+    if (last.l >= 3 && last.l <= 6) voteTheo += 80;
+    if (last.l >= 7) voteBe += 90;
+  }
 
-  let score = { T: 0, X: 0 };
-  votes.forEach(v => score[v.v] += v.s);
+  let action = voteTheo >= voteBe ? "THEO" : "BE";
+  let du_doan =
+    action === "THEO" ? last.v : flip(last.v);
 
-  const du_doan = score.T > score.X ? "T" : "X";
-  const confidence = Math.min(
+  let confidence = Math.min(
     96,
-    Math.max(72, Math.round(Math.max(score.T, score.X) / votes.length))
+    Math.max(72, Math.round(Math.max(voteTheo, voteBe) / 2))
   );
 
   return {
     du_doan,
     do_tin_cay: `${confidence}%`,
-    run_7: runs.map(r => r.l).join("-"),
-    chien_luoc: votes.map(v => v.t).join(" | "),
-    so_phieu: votes.length
+    cau: runs.slice(-3).map(r => r.l).join("-"),
+    quyet_dinh: action === "THEO" ? "Theo cầu" : "Bẻ cầu",
+    ly_do: reasons.join(" | ")
   };
 }
 
