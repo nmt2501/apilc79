@@ -23,7 +23,7 @@ const MAX_HISTORY = 80;
 
 /* ================== STATE CHƠI TAY ================== */
 let state = {
-  mode: "THEO",       // THEO | BE
+  mode: "THEO", // THEO | BE
   theoCount: 0,
   beCount: 0
 };
@@ -57,6 +57,29 @@ function buildCau(pattern, take = 3) {
   return runs.slice(-take).map(r => r.l).join("-");
 }
 
+/* ================== PHÁT HIỆN CẦU LOẠN ================== */
+function isLoan(pattern) {
+  if (!pattern || pattern.length < 6) return true;
+
+  const runs = buildRuns(pattern).slice(-6);
+  if (runs.length < 3) return true;
+
+  const lens = runs.map(r => r.l);
+
+  // Nhảy nhịp mạnh
+  let jump = 0;
+  for (let i = 1; i < lens.length; i++) {
+    if (Math.abs(lens[i] - lens[i - 1]) >= 2) jump++;
+  }
+  if (jump >= 3) return true;
+
+  // Quá nhiều run 1
+  const short = lens.filter(l => l === 1).length;
+  if (short >= 4) return true;
+
+  return false;
+}
+
 /* ================== SUY CẦU TỪ 4 KÝ TỰ CUỐI ================== */
 function inferCauFromLast4(pattern) {
   if (pattern.length < 4) return [];
@@ -76,24 +99,46 @@ function inferCauFromLast4(pattern) {
 
   const key = runs.join("-");
   const MAP = {
-    "2-1-1": ["2-1-2","1-2-1","1-1-1"],
-    "1-1-1-1": ["1-1","1-1-1"],
+    "2-1-1": ["2-1-2","1-2-1"],
+    "1-1-1-1": ["1-1"],
     "1-2-1": ["1-2-1","1-2-2"],
     "2-2": ["2-2","2-2-1"],
-    "3-1": ["3-1-2","3-1-1"]
+    "3-1": ["3-1-1","3-1-2"],
+    "2-4-1": ["2-4-1"]
   };
 
   return MAP[key] || [key];
 }
 
-/* ================== THUẬT TOÁN CAO CẤP ================== */
-function predictAdvanced(pattern) {
-  if (!pattern || pattern.length < 7) return null;
+/* ================== THUẬT TOÁN CHÍNH ================== */
+function predictAdvanced(pattern, type = "TX") {
 
+  if (!pattern || pattern.length < 7) {
+    return {
+      du_doan: "Chưa Đủ Dữ Liệu",
+      do_tin_cay: "0%",
+      cau: buildCau(pattern),
+      chien_luoc: "Thiếu dữ liệu",
+      ly_do: "History quá ngắn"
+    };
+  }
+
+  const loan = isLoan(pattern);
   const runs = buildRuns(pattern);
   const last = runs[runs.length - 1];
   const cau = buildCau(pattern);
   const possibleCau = inferCauFromLast4(pattern);
+
+  // MD5 loạn => nghỉ
+  if (loan && type === "MD5") {
+    return {
+      du_doan: "Chưa Đủ Dữ Liệu",
+      do_tin_cay: "0%",
+      cau,
+      chien_luoc: "MD5 loạn – nghỉ",
+      ly_do: "Hash MD5 loạn"
+    };
+  }
 
   let theoScore = 0;
   let beScore = 0;
@@ -102,7 +147,7 @@ function predictAdvanced(pattern) {
   /* ===== CẦU BỆT ===== */
   if (last.l >= 6) {
     beScore += 40;
-    reason.push("Cầu bệt dài");
+    reason.push("Bệt dài");
   }
 
   /* ===== CẦU BÁM ===== */
@@ -111,25 +156,26 @@ function predictAdvanced(pattern) {
     reason.push("Cầu bám");
   }
 
-  /* ===== CẦU 1-1 / NHỊP ===== */
-  if (pattern.slice(-4) === "TXTX" || pattern.slice(-4) === "XTXT") {
+  /* ===== CẦU 1-1 ===== */
+  const last4 = pattern.slice(-4);
+  if (last4 === "TXTX" || last4 === "XTXT") {
     theoScore += 25;
     reason.push("Cầu 1-1");
   }
 
-  /* ===== CẦU KHÓ / CẦU GIẢ ===== */
-  if (["1-3-1","2-1-2","3-1-2"].includes(cau)) {
+  /* ===== CẦU KHÓ / ĐẢO ===== */
+  if (["1-3-1","2-1-2","3-1-2","2-4-1"].includes(cau)) {
     beScore += 35;
-    reason.push("Cầu khó / cầu giả");
+    reason.push("Cầu khó");
   }
 
   /* ===== SUY TỪ 4 KÝ TỰ CUỐI ===== */
   if (possibleCau.length > 1) {
     beScore += 15;
-    reason.push("Cầu đảo nhịp");
+    reason.push("Đảo nhịp");
   }
 
-  /* ===== LOGIC CHƠI TAY ===== */
+  /* ===== LOGIC THEO / BẺ THEO TAY ===== */
   let action;
   if (state.mode === "THEO") {
     action = theoScore >= beScore ? "THEO" : "BE";
@@ -147,9 +193,7 @@ function predictAdvanced(pattern) {
     }
   }
 
-  const du_doan =
-    action === "THEO" ? last.v : flip(last.v);
-
+  const du_doan = action === "THEO" ? last.v : flip(last.v);
   let score = Math.min(96, Math.max(72, Math.max(theoScore, beScore) + 50));
 
   return {
@@ -170,11 +214,8 @@ async function fetchTX() {
       lastTX = data;
       historyTX.push(toTX(data.ket_qua));
       if (historyTX.length > MAX_HISTORY) historyTX.shift();
-      console.log("TX ▶", data.phien, data.ket_qua);
     }
-  } catch {
-    console.log("TX ERROR");
-  }
+  } catch {}
 }
 
 /* ================== FETCH MD5 ================== */
@@ -186,14 +227,10 @@ async function fetchMD5() {
       lastMD5 = data;
       historyMD5.push(toTX(data.ket_qua));
       if (historyMD5.length > MAX_HISTORY) historyMD5.shift();
-      console.log("MD5 ▶", data.phien, data.ket_qua);
     }
-  } catch {
-    console.log("MD5 ERROR");
-  }
+  } catch {}
 }
 
-/* ================== START FETCH ================== */
 fetchTX();
 fetchMD5();
 setInterval(fetchTX, 8000);
@@ -202,7 +239,7 @@ setInterval(fetchMD5, 8000);
 /* ================== API TX ================== */
 app.get("/api/lc79/tx", (req, res) => {
   const pattern = historyTX.join("");
-  const pred = predictAdvanced(pattern);
+  const pred = predictAdvanced(pattern, "TX");
 
   res.json({
     phien: lastTX?.phien ?? null,
@@ -212,10 +249,10 @@ app.get("/api/lc79/tx", (req, res) => {
     tong: lastTX?.tong ?? null,
     ket_qua: lastTX?.ket_qua ?? null,
     phien_hien_tai: lastTX ? lastTX.phien + 1 : null,
-    du_doan: pred?.du_doan ?? null,
-    do_tin_cay: pred?.do_tin_cay ?? null,
+    du_doan: pred.du_doan,
+    do_tin_cay: pred.do_tin_cay,
     pattern,
-    cau: pred?.cau ?? buildCau(pattern),
+    cau: pred.cau,
     id: "BI NHOI - LC79 VIP PRO"
   });
 });
@@ -223,7 +260,7 @@ app.get("/api/lc79/tx", (req, res) => {
 /* ================== API MD5 ================== */
 app.get("/api/lc79/md5", (req, res) => {
   const pattern = historyMD5.join("");
-  const pred = predictAdvanced(pattern);
+  const pred = predictAdvanced(pattern, "MD5");
 
   res.json({
     phien: lastMD5?.phien ?? null,
@@ -233,10 +270,10 @@ app.get("/api/lc79/md5", (req, res) => {
     tong: lastMD5?.tong ?? null,
     ket_qua: lastMD5?.ket_qua ?? null,
     phien_hien_tai: lastMD5 ? lastMD5.phien + 1 : null,
-    du_doan: pred?.du_doan ?? null,
-    do_tin_cay: pred?.do_tin_cay ?? null,
+    du_doan: pred.du_doan,
+    do_tin_cay: pred.do_tin_cay,
     pattern,
-    cau: pred?.cau ?? buildCau(pattern),
+    cau: pred.cau,
     id: "BI NHOI - LC79 VIP PRO"
   });
 });
