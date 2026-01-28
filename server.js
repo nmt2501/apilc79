@@ -19,14 +19,7 @@ let lastMD5 = null;
 let lastPhienTX = null;
 let lastPhienMD5 = null;
 
-const MAX_HISTORY = 25;
-
-/* ================== STATE CHƠI TAY ================== */
-let state = {
-  mode: "THEO", // THEO | BE
-  theoCount: 0,
-  beCount: 0
-};
+const MAX_HISTORY = 80;
 
 /* ================== TOOL ================== */
 const toTX = kq => (kq === "Tài" ? "T" : "X");
@@ -57,36 +50,14 @@ function buildCau(pattern, take = 3) {
   return runs.slice(-take).map(r => r.l).join("-");
 }
 
-/* ================== PHÁT HIỆN CẦU LOẠN ================== */
-function isLoan(pattern) {
-  if (!pattern || pattern.length < 6) return true;
+/* ================== SUY CẦU 4 KÝ TỰ CUỐI ================== */
+function inferFromLast4(pattern) {
+  if (pattern.length < 4) return null;
 
-  const runs = buildRuns(pattern).slice(-6);
-  if (runs.length < 3) return true;
-
-  const lens = runs.map(r => r.l);
-
-  // Nhảy nhịp mạnh
-  let jump = 0;
-  for (let i = 1; i < lens.length; i++) {
-    if (Math.abs(lens[i] - lens[i - 1]) >= 2) jump++;
-  }
-  if (jump >= 3) return true;
-
-  // Quá nhiều run 1
-  const short = lens.filter(l => l === 1).length;
-  if (short >= 4) return true;
-
-  return false;
-}
-
-/* ================== SUY CẦU TỪ 4 KÝ TỰ CUỐI ================== */
-function inferCauFromLast4(pattern) {
-  if (pattern.length < 4) return [];
   const last4 = pattern.slice(-4);
-
-  const runs = [];
+  let runs = [];
   let cur = last4[0], len = 1;
+
   for (let i = 1; i < last4.length; i++) {
     if (last4[i] === cur) len++;
     else {
@@ -97,111 +68,70 @@ function inferCauFromLast4(pattern) {
   }
   runs.push(len);
 
-  const key = runs.join("-");
-  const MAP = {
-    "2-1-1": ["2-1-2","1-2-1"],
-    "1-1-1-1": ["1-1"],
-    "1-2-1": ["1-2-1","1-2-2"],
-    "2-2": ["2-2","2-2-1"],
-    "3-1": ["3-1-1","3-1-2"],
-    "2-4-1": ["2-4-1"]
-  };
-
-  return MAP[key] || [key];
+  return runs.join("-");
 }
 
-/* ================== THUẬT TOÁN CHÍNH ================== */
-function predictAdvanced(pattern, type = "TX") {
-
+/* ================== THUẬT TOÁN DỰ ĐOÁN THUẦN ================== */
+function predictByAlgorithm(pattern) {
   if (!pattern || pattern.length < 7) {
     return {
       du_doan: "Chưa Đủ Dữ Liệu",
       do_tin_cay: "0%",
-      cau: buildCau(pattern),
-      chien_luoc: "Thiếu dữ liệu",
-      ly_do: "History quá ngắn"
+      cau: buildCau(pattern)
     };
   }
 
-  const loan = isLoan(pattern);
   const runs = buildRuns(pattern);
   const last = runs[runs.length - 1];
   const cau = buildCau(pattern);
-  const possibleCau = inferCauFromLast4(pattern);
+  const last4Cau = inferFromLast4(pattern);
 
-  // MD5 loạn => nghỉ
-  if (loan && type === "MD5") {
-    return {
-      du_doan: "Chưa Đủ Dữ Liệu",
-      do_tin_cay: "0%",
-      cau,
-      chien_luoc: "MD5 loạn – nghỉ",
-      ly_do: "Hash MD5 loạn"
-    };
-  }
+  let score = 70;
+  let next = last.v;
+  let reasons = [];
 
-  let theoScore = 0;
-  let beScore = 0;
-  let reason = [];
-
-  /* ===== CẦU BỆT ===== */
+  /* ===== BỆT ===== */
   if (last.l >= 6) {
-    beScore += 40;
-    reason.push("Bệt dài");
+    next = flip(last.v);
+    score += 20;
+    reasons.push("Bệt dài đảo chiều");
   }
 
-  /* ===== CẦU BÁM ===== */
-  if (last.l >= 3 && last.l <= 5) {
-    theoScore += 30;
-    reason.push("Cầu bám");
+  /* ===== BÁM ===== */
+  else if (last.l >= 3 && last.l <= 5) {
+    next = last.v;
+    score += 15;
+    reasons.push("Bám cầu");
   }
 
-  /* ===== CẦU 1-1 ===== */
-  const last4 = pattern.slice(-4);
-  if (last4 === "TXTX" || last4 === "XTXT") {
-    theoScore += 25;
-    reason.push("Cầu 1-1");
+  /* ===== 1-1 ===== */
+  if (pattern.slice(-4) === "TXTX" || pattern.slice(-4) === "XTXT") {
+    next = flip(last.v);
+    score += 10;
+    reasons.push("Nhịp 1-1");
   }
 
-  /* ===== CẦU KHÓ / ĐẢO ===== */
-  if (["1-3-1","2-1-2","3-1-2","2-4-1"].includes(cau)) {
-    beScore += 35;
-    reason.push("Cầu khó");
+  /* ===== CẦU KHÓ ===== */
+  if (["1-3-1", "2-1-2", "3-1-2", "2-4-1"].includes(cau)) {
+    next = flip(last.v);
+    score += 15;
+    reasons.push("Cầu khó đảo");
   }
 
-  /* ===== SUY TỪ 4 KÝ TỰ CUỐI ===== */
-  if (possibleCau.length > 1) {
-    beScore += 15;
-    reason.push("Đảo nhịp");
+  /* ===== SUY 4 KÝ TỰ CUỐI ===== */
+  if (["2-1-1", "1-2-1", "3-1"].includes(last4Cau)) {
+    next = flip(last.v);
+    score += 10;
+    reasons.push("Suy từ 4 ký tự cuối");
   }
 
-  /* ===== LOGIC THEO / BẺ THEO TAY ===== */
-  let action;
-  if (state.mode === "THEO") {
-    action = theoScore >= beScore ? "THEO" : "BE";
-    state.theoCount++;
-    if (state.theoCount >= 5) {
-      state.mode = "BE";
-      state.theoCount = 0;
-    }
-  } else {
-    action = beScore >= theoScore ? "BE" : "THEO";
-    state.beCount++;
-    if (state.beCount >= 2) {
-      state.mode = "THEO";
-      state.beCount = 0;
-    }
-  }
-
-  const du_doan = action === "THEO" ? last.v : flip(last.v);
-  let score = Math.min(96, Math.max(72, Math.max(theoScore, beScore) + 50));
+  score = Math.min(96, score);
 
   return {
-    du_doan: du_doan === "T" ? "Tài" : "Xỉu",
+    du_doan: next === "T" ? "Tài" : "Xỉu",
     do_tin_cay: `${score}%`,
     cau,
-    chien_luoc: action === "THEO" ? "Theo cầu" : "Bẻ cầu",
-    ly_do: reason.join(" | ")
+    ly_do: reasons.join(" | ")
   };
 }
 
@@ -239,7 +169,7 @@ setInterval(fetchMD5, 8000);
 /* ================== API TX ================== */
 app.get("/api/lc79/tx", (req, res) => {
   const pattern = historyTX.join("");
-  const pred = predictAdvanced(pattern, "TX");
+  const pred = predictByAlgorithm(pattern);
 
   res.json({
     phien: lastTX?.phien ?? null,
@@ -260,7 +190,7 @@ app.get("/api/lc79/tx", (req, res) => {
 /* ================== API MD5 ================== */
 app.get("/api/lc79/md5", (req, res) => {
   const pattern = historyMD5.join("");
-  const pred = predictAdvanced(pattern, "MD5");
+  const pred = predictByAlgorithm(pattern);
 
   res.json({
     phien: lastMD5?.phien ?? null,
@@ -281,5 +211,5 @@ app.get("/api/lc79/md5", (req, res) => {
 /* ================== START ================== */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log("🚀 LC79 API RUNNING ON PORT", PORT);
+  console.log("🚀 LC79 API THUẬT TOÁN RUNNING ON", PORT);
 });
