@@ -152,17 +152,15 @@ setInterval(fetchTX, 8000);
 
 /* ================== API ================== */
 app.get("/api/lc79/tx", (req, res) => {
-  if (!lastData || history.length < 6) {
-    return res.json({ loading: true });
-  }
-
   const pattern = history.join("");
   const r = predict(pattern);
 
   res.json({
-    phien: lastData.phien,
-    phien_hien_tai: lastData.phien + 1,
-    ket_qua: lastData.ket_qua,
+    loading: !lastData,
+
+    phien: lastData?.phien ?? null,
+    phien_hien_tai: lastData ? lastData.phien + 1 : null,
+    ket_qua: lastData?.ket_qua ?? null,
 
     pattern,
     cau: r?.cau ?? null,
@@ -170,10 +168,10 @@ app.get("/api/lc79/tx", (req, res) => {
     du_doan: r ? (r.du_doan === "T" ? "Tài" : "Xỉu") : null,
     do_tin_cay: r?.do_tin_cay ?? null,
 
+    history_length: history.length,
     server_time: Date.now()
   });
 });
-
 /* ================== START ================== */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () =>
