@@ -21,8 +21,16 @@ let lastPhienMD5 = null;
 
 const MAX_HISTORY = 80;
 
+/* ================== STATE CHƠI TAY ================== */
+let state = {
+  mode: "THEO",       // THEO | BE
+  theoCount: 0,
+  beCount: 0
+};
+
 /* ================== TOOL ================== */
 const toTX = kq => (kq === "Tài" ? "T" : "X");
+const flip = v => (v === "T" ? "X" : "T");
 
 /* ================== BUILD RUN ================== */
 function buildRuns(pattern) {
@@ -49,60 +57,107 @@ function buildCau(pattern, take = 3) {
   return runs.slice(-take).map(r => r.l).join("-");
 }
 
-/* ================== THUẬT TOÁN CHUẨN ================== */
+/* ================== SUY CẦU TỪ 4 KÝ TỰ CUỐI ================== */
+function inferCauFromLast4(pattern) {
+  if (pattern.length < 4) return [];
+  const last4 = pattern.slice(-4);
+
+  const runs = [];
+  let cur = last4[0], len = 1;
+  for (let i = 1; i < last4.length; i++) {
+    if (last4[i] === cur) len++;
+    else {
+      runs.push(len);
+      cur = last4[i];
+      len = 1;
+    }
+  }
+  runs.push(len);
+
+  const key = runs.join("-");
+  const MAP = {
+    "2-1-1": ["2-1-2","1-2-1","1-1-1"],
+    "1-1-1-1": ["1-1","1-1-1"],
+    "1-2-1": ["1-2-1","1-2-2"],
+    "2-2": ["2-2","2-2-1"],
+    "3-1": ["3-1-2","3-1-1"]
+  };
+
+  return MAP[key] || [key];
+}
+
+/* ================== THUẬT TOÁN CAO CẤP ================== */
 function predictAdvanced(pattern) {
   if (!pattern || pattern.length < 7) return null;
 
-  const runs = buildRuns(pattern).slice(-7);
-  const lens = runs.map(r => r.l);
+  const runs = buildRuns(pattern);
   const last = runs[runs.length - 1];
+  const cau = buildCau(pattern);
+  const possibleCau = inferCauFromLast4(pattern);
 
-  let action = null;
-  let du_doan = null;
-  let score = 60;
+  let theoScore = 0;
+  let beScore = 0;
+  let reason = [];
 
-  const cau = lens.slice(-3).join("-");
-
-  // ===== BỆT DÀI =====
-  if (last.l >= 4) {
-    action = "BE";
-    du_doan = last.v === "T" ? "X" : "T";
-    score += last.l * 5;
+  /* ===== CẦU BỆT ===== */
+  if (last.l >= 6) {
+    beScore += 40;
+    reason.push("Cầu bệt dài");
   }
 
-  // ===== CẦU ĐỀU =====
-  else if (
-    lens[lens.length - 1] === lens[lens.length - 2] &&
-    lens[lens.length - 2] === lens[lens.length - 3]
-  ) {
-    action = "THEO";
-    du_doan = last.v;
-    score += 18;
+  /* ===== CẦU BÁM ===== */
+  if (last.l >= 3 && last.l <= 5) {
+    theoScore += 30;
+    reason.push("Cầu bám");
   }
 
-  // ===== CẦU 1-1 =====
-  else if (last.l === 1 && lens[lens.length - 2] === 1) {
-    action = "BE";
-    du_doan = last.v === "T" ? "X" : "T";
-    score += 12;
+  /* ===== CẦU 1-1 / NHỊP ===== */
+  if (pattern.slice(-4) === "TXTX" || pattern.slice(-4) === "XTXT") {
+    theoScore += 25;
+    reason.push("Cầu 1-1");
   }
 
-  // ===== CẦU 1-3-1 / 3-1-1 =====
-  else if (cau === "1-3-1" || cau === "3-1-1") {
-    action = "BE";
-    du_doan = last.v === "T" ? "X" : "T";
-    score += 20;
+  /* ===== CẦU KHÓ / CẦU GIẢ ===== */
+  if (["1-3-1","2-1-2","3-1-2"].includes(cau)) {
+    beScore += 35;
+    reason.push("Cầu khó / cầu giả");
   }
 
-  if (!du_doan) return null;
+  /* ===== SUY TỪ 4 KÝ TỰ CUỐI ===== */
+  if (possibleCau.length > 1) {
+    beScore += 15;
+    reason.push("Cầu đảo nhịp");
+  }
 
-  score = Math.min(92, Math.max(72, score));
+  /* ===== LOGIC CHƠI TAY ===== */
+  let action;
+  if (state.mode === "THEO") {
+    action = theoScore >= beScore ? "THEO" : "BE";
+    state.theoCount++;
+    if (state.theoCount >= 5) {
+      state.mode = "BE";
+      state.theoCount = 0;
+    }
+  } else {
+    action = beScore >= theoScore ? "BE" : "THEO";
+    state.beCount++;
+    if (state.beCount >= 2) {
+      state.mode = "THEO";
+      state.beCount = 0;
+    }
+  }
+
+  const du_doan =
+    action === "THEO" ? last.v : flip(last.v);
+
+  let score = Math.min(96, Math.max(72, Math.max(theoScore, beScore) + 50));
 
   return {
     du_doan: du_doan === "T" ? "Tài" : "Xỉu",
     do_tin_cay: `${score}%`,
     cau,
-    chien_luoc: action === "THEO" ? "Theo cầu" : "Bẻ cầu"
+    chien_luoc: action === "THEO" ? "Theo cầu" : "Bẻ cầu",
+    ly_do: reason.join(" | ")
   };
 }
 
@@ -156,15 +211,11 @@ app.get("/api/lc79/tx", (req, res) => {
     xuc_xac_3: lastTX?.xuc_xac_3 ?? null,
     tong: lastTX?.tong ?? null,
     ket_qua: lastTX?.ket_qua ?? null,
-
     phien_hien_tai: lastTX ? lastTX.phien + 1 : null,
-
     du_doan: pred?.du_doan ?? null,
     do_tin_cay: pred?.do_tin_cay ?? null,
-
     pattern,
     cau: pred?.cau ?? buildCau(pattern),
-
     id: "BI NHOI - LC79 VIP PRO"
   });
 });
@@ -181,15 +232,11 @@ app.get("/api/lc79/md5", (req, res) => {
     xuc_xac_3: lastMD5?.xuc_xac_3 ?? null,
     tong: lastMD5?.tong ?? null,
     ket_qua: lastMD5?.ket_qua ?? null,
-
     phien_hien_tai: lastMD5 ? lastMD5.phien + 1 : null,
-
     du_doan: pred?.du_doan ?? null,
     do_tin_cay: pred?.do_tin_cay ?? null,
-
     pattern,
     cau: pred?.cau ?? buildCau(pattern),
-
     id: "BI NHOI - LC79 VIP PRO"
   });
 });
