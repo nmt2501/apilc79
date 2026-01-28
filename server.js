@@ -6,25 +6,21 @@ const app = express();
 app.use(cors());
 
 /* ================== API GỐC ================== */
-const API_TX  = "https://lc79md5.vercel.app/lc79/tx";
-const API_MD5 = "https://lc79md5.vercel.app/lc79/md5";
+const API_TX = "https://lc79md5.vercel.app/lc79/tx";
 
 /* ================== BIẾN ================== */
-let historyTX = [];
-let historyMD5 = [];
-
-let lastTX = null;
-let lastMD5 = null;
-
-let phienTX = null;
-let phienMD5 = null;
-
+let history = [];
+let lastData = null;
+let lastPhien = null;
 const MAX_HISTORY = 80;
+
+/* ================== TOOL ================== */
+const toTX = kq => (kq === "Tài" ? "T" : "X");
 const flip = v => (v === "T" ? "X" : "T");
 
 /* ================== BUILD RUN ================== */
 function buildRuns(pattern) {
-  let runs = [];
+  const runs = [];
   let cur = pattern[0];
   let len = 1;
 
@@ -40,35 +36,18 @@ function buildRuns(pattern) {
   return runs;
 }
 
-const last7Runs = runs => runs.slice(-7);
-
-/* ================== AUTO THEO / BẺ ================== */
-function autoCauDecision(runs) {
-  const last = runs[runs.length - 1];
-  let votes = [];
-
-  if (last.l >= 3 && last.l <= 6) {
-    votes.push({ v: last.v, s: 86, t: "Theo cầu bệt" });
-  }
-
-  if (last.l >= 7) {
-    votes.push({ v: flip(last.v), s: 94, t: "Bẻ cầu sâu" });
-  }
-
-  if (runs.length >= 3) {
-    const a = runs[runs.length - 3].l;
-    const b = runs[runs.length - 2].l;
-    const c = last.l;
-    if (b >= 5 && (a === 1 || c === 1)) {
-      votes.push({ v: flip(last.v), s: 90, t: "Gãy cầu" });
-    }
-  }
-
-  return votes;
+function last7Runs(runs) {
+  return runs.slice(-7);
 }
 
-/* ================== PATTERN ================== */
-const PATTERN_ALGOS = [
+function buildCau(pattern) {
+  if (!pattern || pattern.length < 2) return null;
+  const runs = buildRuns(pattern);
+  return runs.slice(-3).map(r => r.l).join("-");
+}
+
+/* ================== THUẬT TOÁN (TỪ FILE lc79.js – ĐÃ CHUẨN HOÁ) ================== */
+const ALGOS = [
   { p:[1,1], type:"BE", score:82 },
   { p:[2,2], type:"THEO", score:86 },
   { p:[3,3], type:"THEO", score:88 },
@@ -99,18 +78,17 @@ const PATTERN_ALGOS = [
   { p:[5,5,4], type:"BE", score:94 }
 ];
 
-function matchLoose(runs, p) {
-  if (runs.length < p.length) return false;
-  let diff = 0;
-  for (let i = 0; i < p.length; i++) {
-    diff += Math.abs(
-      runs[runs.length - p.length + i].l - p[i]
-    );
+/* ================== SO PATTERN LỎNG ================== */
+function matchLoose(runs, patternArr) {
+  if (runs.length < patternArr.length) return false;
+  const slice = runs.slice(-patternArr.length);
+  for (let i = 0; i < patternArr.length; i++) {
+    if (slice[i].l !== patternArr[i]) return false;
   }
-  return diff <= 2; // khớp lỏng
+  return true;
 }
 
-/* ================== DỰ ĐOÁN ================== */
+/* ================== CORE PREDICT ================== */
 function predict(pattern) {
   if (!pattern || pattern.length < 6) return null;
 
@@ -121,32 +99,30 @@ function predict(pattern) {
   let voteBe = 0;
   let reasons = [];
 
-  for (const algo of PATTERN_ALGOS) {
-    if (matchLoose(runs, algo.p)) {
-      if (algo.type === "THEO") {
-        voteTheo += algo.score;
-        reasons.push(`Theo ${algo.p.join("-")}`);
+  for (const a of ALGOS) {
+    if (matchLoose(runs, a.p)) {
+      if (a.type === "THEO") {
+        voteTheo += a.score;
+        reasons.push(`Theo ${a.p.join("-")}`);
       } else {
-        voteBe += algo.score;
-        reasons.push(`Bẻ ${algo.p.join("-")}`);
+        voteBe += a.score;
+        reasons.push(`Bẻ ${a.p.join("-")}`);
       }
     }
   }
 
-  // fallback theo cầu nếu không khớp pattern
+  /* fallback nếu không khớp thuật toán */
   if (voteTheo === 0 && voteBe === 0) {
     if (last.l >= 3 && last.l <= 6) voteTheo += 80;
     if (last.l >= 7) voteBe += 90;
   }
 
-  let action = voteTheo >= voteBe ? "THEO" : "BE";
-  let du_doan =
-    action === "THEO" ? last.v : flip(last.v);
+  const action = voteTheo >= voteBe ? "THEO" : "BE";
+  const du_doan = action === "THEO" ? last.v : flip(last.v);
 
-  let confidence = Math.min(
-    96,
-    Math.max(72, Math.round(Math.max(voteTheo, voteBe) / 2))
-  );
+  let confidence = Math.round(Math.max(voteTheo, voteBe) / 2);
+  if (confidence < 72) confidence = 72;
+  if (confidence > 96) confidence = 96;
 
   return {
     du_doan,
@@ -157,66 +133,49 @@ function predict(pattern) {
   };
 }
 
-/* ================== FETCH ================== */
+/* ================== FETCH DATA ================== */
 async function fetchTX() {
   try {
     const { data } = await axios.get(API_TX, { timeout: 5000 });
-    if (data.phien !== phienTX) {
-      phienTX = data.phien;
-      lastTX = data; // giữ nguyên object gốc
-      historyTX.push(data.ket_qua === "Tài" ? "T" : "X");
-      if (historyTX.length > MAX_HISTORY) historyTX.shift();
+    if (data.phien !== lastPhien) {
+      lastPhien = data.phien;
+      lastData = data;
+      history.push(toTX(data.ket_qua));
+      if (history.length > MAX_HISTORY) history.shift();
+      console.log("▶", data.phien, data.ket_qua);
     }
   } catch {}
 }
 
-async function fetchMD5() {
-  try {
-    const { data } = await axios.get(API_MD5, { timeout: 5000 });
-    if (data.phien !== phienMD5) {
-      phienMD5 = data.phien;
-      lastMD5 = data;
-      historyMD5.push(data.ket_qua === "Tài" ? "T" : "X");
-      if (historyMD5.length > MAX_HISTORY) historyMD5.shift();
-    }
-  } catch {}
-}
-
+fetchTX();
 setInterval(fetchTX, 8000);
-setInterval(fetchMD5, 8000);
 
-/* ================== RESPONSE ================== */
-function respond(res, data, history) {
+/* ================== API ================== */
+app.get("/api/lc79/tx", (req, res) => {
+  if (!lastData || history.length < 6) {
+    return res.json({ loading: true });
+  }
+
   const pattern = history.join("");
   const r = predict(pattern);
 
   res.json({
-    phien: data?.phien ?? null,
-    phien_hien_tai: data?.phien_hien_tai ?? null,
-    ket_qua: data?.ket_qua ?? null,
-
-    xuc_xac_1: data?.xuc_xac_1 ?? null,
-    xuc_xac_2: data?.xuc_xac_2 ?? null,
-    xuc_xac_3: data?.xuc_xac_3 ?? null,
-    tong: data?.tong ?? null,
+    phien: lastData.phien,
+    phien_hien_tai: lastData.phien + 1,
+    ket_qua: lastData.ket_qua,
 
     pattern,
+    cau: r?.cau ?? null,
+    quyet_dinh: r?.quyet_dinh ?? null,
     du_doan: r ? (r.du_doan === "T" ? "Tài" : "Xỉu") : null,
     do_tin_cay: r?.do_tin_cay ?? null,
-    run_7: r?.run_7 ?? null,
-    chien_luoc: r?.chien_luoc ?? null,
-    so_phieu: r?.so_phieu ?? 0,
 
     server_time: Date.now()
   });
-}
-
-/* ================== ROUTES ================== */
-app.get("/api/lc79/tx",  (req, res) => respond(res, lastTX, historyTX));
-app.get("/api/lc79/md5", (req, res) => respond(res, lastMD5, historyMD5));
+});
 
 /* ================== START ================== */
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log("🚀 LC79 API RUNNING ON PORT", PORT);
-});
+app.listen(PORT, () =>
+  console.log("🚀 LC79 API RUNNING ON", PORT)
+);
