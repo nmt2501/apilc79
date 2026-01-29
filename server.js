@@ -738,10 +738,11 @@ findOptimalMomentumTimeframe() {
     let bestTimeframe = 6;
     let bestSuccessRate = 0;
 
-    // Chưa triển khai logic tối ưu chi tiết
-    // Trả về mặc định để tránh lỗi runtime
     return bestTimeframe;
-}  
+}
+
+} // 👈👈👈 DÒNG NÀY – ĐÓNG CLASS (BẮT BUỘC)
+
 
 /* ================== INIT ENGINE ================== */
 const engineTX = new UltraDicePredictionSystem();
