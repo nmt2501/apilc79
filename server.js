@@ -446,12 +446,25 @@ class UltraDicePredictionSystem {
         };
     }
 
-      model2Mini(data) {
+    model2Mini(data) {
+        // ===== CHỐNG NỔ =====
+        if (!Array.isArray(data) || data.length < 2) {
+            return {
+                trend: 'neutral',
+                strength: 0,
+                volatility: 1
+            };
+        }
+
         const tCount =
-            data.filter(x => x === 'T').length;
+            data
+                .filter(x => x === 'T')
+                .length;
 
         const xCount =
-            data.filter(x => x === 'X').length;
+            data
+                .filter(x => x === 'X')
+                .length;
 
         let trend =
             tCount > xCount
@@ -466,6 +479,7 @@ class UltraDicePredictionSystem {
 
         // Phân tích chi tiết hơn
         let changes = 0;
+
         for (let i = 1; i < data.length; i++) {
             if (data[i] !== data[i - 1]) {
                 changes++;
@@ -473,11 +487,13 @@ class UltraDicePredictionSystem {
         }
 
         const volatility =
-            changes / (data.length - 1);
+            changes /
+            (data.length - 1);
 
         // Điều chỉnh strength dựa trên volatility
         strength =
-            strength * (1 - volatility / 2);
+            strength *
+            (1 - volatility / 2);
 
         return {
             trend,
@@ -485,6 +501,7 @@ class UltraDicePredictionSystem {
             volatility
         };
     }
+
 
     model2Support1() {
         // Phân tích chất lượng trend
