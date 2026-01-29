@@ -984,6 +984,33 @@ class UltraDicePredictionSystem {
         return 6;
     }
 
+    /* ================== CORE PREDICT ================== */
+    predict() {
+        let vote = { T: 0, X: 0 };
+        let tong_model = 0;
+
+        for (const model of Object.values(this.models)) {
+            if (typeof model !== "function") continue;
+
+            const r = model();
+            if (!r || !r.prediction || !r.confidence) continue;
+
+            vote[r.prediction] += r.confidence;
+            tong_model++;
+        }
+
+        const du_doan = vote.T >= vote.X ? "Tài" : "Xỉu";
+        const do_tin_cay =
+            Math.min(96, Math.round(Math.max(vote.T, vote.X) * 100)) + "%";
+
+        return {
+            du_doan,
+            do_tin_cay,
+            tong_model,
+            vote
+        };
+    }
+
 /* ================== INIT ENGINE ================== */
 const engineTX = new UltraDicePredictionSystem();
 const engineMD5 = new UltraDicePredictionSystem();
