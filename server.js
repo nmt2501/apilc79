@@ -1,3 +1,4 @@
+
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
@@ -5,23 +6,14 @@ const cors = require("cors");
 const app = express();
 app.use(cors());
 
-/* ================== API GỐC ================== */
 const API_TX  = "https://lc79md5.vercel.app/lc79/tx";
 const API_MD5 = "https://lc79md5.vercel.app/lc79/md5";
 
-/* ================== BIẾN ================== */
-let historyTX = [];
-let historyMD5 = [];
-
 let lastTX = null;
 let lastMD5 = null;
-
 let lastPhienTX = null;
 let lastPhienMD5 = null;
 
-const MAX_HISTORY = 80;
-
-/* ================== TOOL ================== */
 const toTX = kq => (kq === "Tài" ? "T" : "X");
 
 class UltraDicePredictionSystem {
@@ -743,12 +735,13 @@ class UltraDicePredictionSystem {
         
         let bestTimeframe = 6;
         let bestSuccessRate = 0;
+        
 
-/* ================== INIT ENGINE ================== */
+// ===== INIT ENGINE =====
 const engineTX = new UltraDicePredictionSystem();
 const engineMD5 = new UltraDicePredictionSystem();
 
-/* ================== FETCH ================== */
+// ===== FETCH =====
 async function fetchTX() {
   try {
     const { data } = await axios.get(API_TX, { timeout: 5000 });
@@ -774,34 +767,21 @@ async function fetchMD5() {
 setInterval(fetchTX, 8000);
 setInterval(fetchMD5, 8000);
 
-/* ================== DỰ ĐOÁN ================== */
+// ===== PREDICT =====
 function getPrediction(engine) {
   let vote = { T: 0, X: 0 };
-  let reasons = [];
-
   for (const model of Object.values(engine.models)) {
     const r = model();
-    if (r) {
-      vote[r.prediction] += r.confidence;
-      reasons.push(r.reason);
-    }
+    if (r) vote[r.prediction] += r.confidence;
   }
-
   const next = vote.T >= vote.X ? "Tài" : "Xỉu";
   const conf = Math.min(96, Math.round(Math.max(vote.T, vote.X) * 100));
-
-  return {
-    du_doan: next,
-    do_tin_cay: `${conf}%`,
-    ly_do: reasons.join(" | ")
-  };
+  return { du_doan: next, do_tin_cay: conf + "%" };
 }
 
-/* ================== API TX ================== */
+// ===== API TX =====
 app.get("/api/lc79/tx", (req, res) => {
-  const pattern = engineTX.history.join("");
   const pred = getPrediction(engineTX);
-
   res.json({
     phien: lastTX?.phien ?? null,
     xuc_xac_1: lastTX?.xuc_xac_1 ?? null,
@@ -812,17 +792,15 @@ app.get("/api/lc79/tx", (req, res) => {
     phien_hien_tai: lastTX ? lastTX.phien + 1 : null,
     du_doan: pred.du_doan,
     do_tin_cay: pred.do_tin_cay,
-    pattern,
+    pattern: engineTX.history.join(""),
     cau: null,
     id: "BI NHOI - LC79 VIP PRO"
   });
 });
 
-/* ================== API MD5 ================== */
+// ===== API MD5 =====
 app.get("/api/lc79/md5", (req, res) => {
-  const pattern = engineMD5.history.join("");
   const pred = getPrediction(engineMD5);
-
   res.json({
     phien: lastMD5?.phien ?? null,
     xuc_xac_1: lastMD5?.xuc_xac_1 ?? null,
@@ -833,14 +811,11 @@ app.get("/api/lc79/md5", (req, res) => {
     phien_hien_tai: lastMD5 ? lastMD5.phien + 1 : null,
     du_doan: pred.du_doan,
     do_tin_cay: pred.do_tin_cay,
-    pattern,
+    pattern: engineMD5.history.join(""),
     cau: null,
     id: "BI NHOI - LC79 VIP PRO"
   });
 });
 
-/* ================== START ================== */
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log("🚀 LC79 ULTRA AI RUNNING ON", PORT);
-});
+app.listen(PORT, () => console.log("RUN", PORT));
