@@ -817,5 +817,8 @@ app.get("/api/lc79/md5", (req, res) => {
   });
 });
 
+/* ================== START ================== */
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("RUN", PORT));
+app.listen(PORT, () => {
+  console.log("🚀 LC79 ULTRA AI RUNNING ON", PORT);
+});
