@@ -997,10 +997,20 @@ class UltraDicePredictionSystem {
             if (typeof model !== "function") continue;
 
             const r = model();
-            if (!r || !r.prediction || !r.confidence) continue;
+            if (!r || !r.prediction || typeof r.confidence !== "number") continue;
 
             vote[r.prediction] += r.confidence;
             tong_model++;
+        }
+
+        // Nếu chưa đủ dữ liệu
+        if (tong_model === 0) {
+            return {
+                du_doan: "Chờ dữ liệu",
+                do_tin_cay: "0%",
+                tong_model: 0,
+                vote
+            };
         }
 
         const du_doan = vote.T >= vote.X ? "Tài" : "Xỉu";
@@ -1014,7 +1024,7 @@ class UltraDicePredictionSystem {
             vote
         };
     }
-} // ✅ DẤU NÀY BẮT BUỘC PHẢI CÓ
+} // ✅ ĐÓNG CLASS – BẮT BUỘC PHẢI CÓ
 
 /* ================== INIT ENGINE ================== */
 const engineTX = new UltraDicePredictionSystem();
@@ -1022,27 +1032,31 @@ const engineMD5 = new UltraDicePredictionSystem();
 
 /* ================== FETCH ================== */
 async function fetchTX() {
-  try {
-    const { data } = await axios.get(API_TX, { timeout: 5000 });
+    try {
+        const { data } = await axios.get(API_TX, { timeout: 5000 });
 
-    if (data.phien !== lastPhienTX) {
-      lastPhienTX = data.phien;
-      lastTX = data;
-      engineTX.addResult(toTX(data.ket_qua));
+        if (data && data.phien !== lastPhienTX) {
+            lastPhienTX = data.phien;
+            lastTX = data;
+            engineTX.addResult(toTX(data.ket_qua));
+        }
+    } catch (e) {
+        console.error("fetchTX error:", e.message);
     }
-  } catch (e) {}
 }
 
 async function fetchMD5() {
-  try {
-    const { data } = await axios.get(API_MD5, { timeout: 5000 });
+    try {
+        const { data } = await axios.get(API_MD5, { timeout: 5000 });
 
-    if (data.phien !== lastPhienMD5) {
-      lastPhienMD5 = data.phien;
-      lastMD5 = data;
-      engineMD5.addResult(toTX(data.ket_qua));
+        if (data && data.phien !== lastPhienMD5) {
+            lastPhienMD5 = data.phien;
+            lastMD5 = data;
+            engineMD5.addResult(toTX(data.ket_qua));
+        }
+    } catch (e) {
+        console.error("fetchMD5 error:", e.message);
     }
-  } catch (e) {}
 }
 
 setInterval(fetchTX, 8000);
@@ -1050,59 +1064,60 @@ setInterval(fetchMD5, 8000);
 
 /* ================== RESPONSE BUILDER ================== */
 function buildResponse(source, last, engine) {
-  if (!last) return { status: "loading" };
+    if (!last) return { status: "loading" };
 
-  const pred = engine.predict();
+    const pred = engine.predict();
+    if (!pred) return { status: "waiting_data" };
 
-  return {
-    status: "success",
-    source,
+    return {
+        status: "success",
+        source,
 
-    phien_truoc: {
-      phien: last.phien,
-      xuc_xac: [
-        last.xuc_xac_1,
-        last.xuc_xac_2,
-        last.xuc_xac_3
-      ],
-      tong: last.tong,
-      ket_qua: last.ket_qua
-    },
+        phien_truoc: {
+            phien: last.phien,
+            xuc_xac: [
+                last.xuc_xac_1,
+                last.xuc_xac_2,
+                last.xuc_xac_3
+            ],
+            tong: last.tong,
+            ket_qua: last.ket_qua
+        },
 
-    phien_hien_tai: {
-      phien: last.phien + 1,
-      du_doan: pred.du_doan,
-      do_tin_cay: pred.do_tin_cay,
-      tong_model: pred.tong_model,
-      vote: pred.vote
-    },
+        phien_hien_tai: {
+            phien: last.phien + 1,
+            du_doan: pred.du_doan,
+            do_tin_cay: pred.do_tin_cay,
+            tong_model: pred.tong_model,
+            vote: pred.vote
+        },
 
-    pattern: {
-      chuoi: engine.history.join(""),
-      do_dai: engine.history.length
-    },
+        pattern: {
+            chuoi: engine.history.join(""),
+            do_dai: engine.history.length
+        },
 
-    engine: {
-      volatility: engine.marketState.volatility,
-      regime: engine.marketState.regime,
-      trend: engine.marketState.trend
-    },
+        engine: {
+            volatility: engine.sessionStats.volatility, // ✅ FIX LỖI 500
+            regime: engine.marketState.regime,
+            trend: engine.marketState.trend
+        },
 
-    id: "BI NHOI - LC79 ULTRA AI"
-  };
+        id: "BI NHOI - LC79 ULTRA AI"
+    };
 }
 
 /* ================== API ================== */
 app.get("/api/lc79/tx", (req, res) => {
-  res.json(buildResponse("Tài Xỉu Hũ", lastTX, engineTX));
+    res.json(buildResponse("Tài Xỉu Hũ", lastTX, engineTX));
 });
 
 app.get("/api/lc79/md5", (req, res) => {
-  res.json(buildResponse("Tài Xỉu MD5", lastMD5, engineMD5));
+    res.json(buildResponse("Tài Xỉu MD5", lastMD5, engineMD5));
 });
 
 /* ================== START ================== */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log("🚀 LC79 ULTRA AI RUNNING ON", PORT);
+    console.log("🚀 LC79 ULTRA AI RUNNING ON", PORT);
 });
