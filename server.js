@@ -735,7 +735,6 @@ class UltraDicePredictionSystem {
         
         let bestTimeframe = 6;
         let bestSuccessRate = 0;
-        
 
 // ===== INIT ENGINE =====
 const engineTX = new UltraDicePredictionSystem();
