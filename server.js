@@ -704,14 +704,14 @@ class UltraDicePredictionSystem {
 
     analyzeShortTermMomentumEffectiveness() {
         if (this.history.length < 20) return { effectiveness: 'unknown', successRate: 0 };
-        
+
         let successes = 0;
         let opportunities = 0;
-        
+
         for (let i = 6; i < this.history.length; i++) {
             const segment = this.history.slice(i - 6, i);
             const analysis = this.model4Mini(segment);
-            
+
             if (analysis.confidence >= 0.6) {
                 opportunities++;
                 if (this.history[i] === analysis.prediction) {
@@ -719,28 +719,27 @@ class UltraDicePredictionSystem {
                 }
             }
         }
-        
+
         const successRate = opportunities > 0 ? successes / opportunities : 0;
         let effectiveness;
-        
+
         if (successRate > 0.6) effectiveness = 'high';
         else if (successRate > 0.5) effectiveness = 'medium';
         else effectiveness = 'low';
-        
+
         return { effectiveness, successRate, opportunities };
     }
 
-findOptimalMomentumTimeframe() {
-    if (this.history.length < 50) return 6;
+    findOptimalMomentumTimeframe() {
+        if (this.history.length < 50) return 6;
 
-    let bestTimeframe = 6;
-    let bestSuccessRate = 0;
+        let bestTimeframe = 6;
+        let bestSuccessRate = 0;
 
-    // hiện tại chưa triển khai logic tối ưu chi tiết
-    // trả về mặc định để tránh lỗi cú pháp
-    return bestTimeframe;
-}
+        return bestTimeframe;
+    }
 
+} // 👈 BẮT BUỘC PHẢI CÓ DÒNG NÀY
 
 // ===== INIT ENGINE =====
 const engineTX = new UltraDicePredictionSystem();
