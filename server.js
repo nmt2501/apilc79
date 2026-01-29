@@ -1010,6 +1010,7 @@ class UltraDicePredictionSystem {
             vote
         };
     }
+} // ✅ DẤU NÀY BẮT BUỘC PHẢI CÓ
 
 /* ================== INIT ENGINE ================== */
 const engineTX = new UltraDicePredictionSystem();
