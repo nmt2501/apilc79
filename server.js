@@ -796,7 +796,6 @@ function getPrediction(engine) {
 /* ================== API TX ================== */
 app.get("/api/lc79/tx", (req, res) => {
   const pattern = engineTX.history.join("");
-
   const pred = getPrediction(engineTX);
 
   res.json({
@@ -810,7 +809,7 @@ app.get("/api/lc79/tx", (req, res) => {
     du_doan: pred.du_doan,
     do_tin_cay: pred.do_tin_cay,
     pattern,
-    cau: null, // giữ key, thuật toán mới không dùng cau
+    cau: null,
     id: "BI NHOI - LC79 VIP PRO"
   });
 });
@@ -818,7 +817,6 @@ app.get("/api/lc79/tx", (req, res) => {
 /* ================== API MD5 ================== */
 app.get("/api/lc79/md5", (req, res) => {
   const pattern = engineMD5.history.join("");
-
   const pred = getPrediction(engineMD5);
 
   res.json({
@@ -832,7 +830,7 @@ app.get("/api/lc79/md5", (req, res) => {
     du_doan: pred.du_doan,
     do_tin_cay: pred.do_tin_cay,
     pattern,
-    cau: null, // giữ key
+    cau: null,
     id: "BI NHOI - LC79 VIP PRO"
   });
 });
