@@ -679,21 +679,39 @@ class UltraDicePredictionSystem {
     }
 
     model3Mini(data) {
+        // ===== CHỐNG NỔ =====
+        if (!Array.isArray(data) || data.length === 0) {
+            return {
+                difference: 0,
+                prediction: null,
+                tCount: 0,
+                xCount: 0
+            };
+        }
+
         const tCount =
-            data.filter(x => x === 'T').length;
+            data
+                .filter(x => x === 'T')
+                .length;
 
         const xCount =
-            data.filter(x => x === 'X').length;
+            data
+                .filter(x => x === 'X')
+                .length;
 
         const total =
             data.length;
 
         const difference =
-            Math.abs(tCount - xCount) / total;
+            Math.abs(tCount - xCount) /
+            total;
 
         return {
             difference,
-            prediction: tCount > xCount ? 'X' : 'T',
+            prediction:
+                tCount > xCount
+                    ? 'X'
+                    : 'T',
             tCount,
             xCount
         };
@@ -869,13 +887,27 @@ class UltraDicePredictionSystem {
     }
 
     model4Mini(data) {
-        const last3 = data.slice(-3);
+        // ===== CHỐNG NỔ =====
+        if (!Array.isArray(data) || data.length < 3) {
+            return {
+                prediction: null,
+                confidence: 0,
+                trend: 'unknown'
+            };
+        }
+
+        const last3 =
+            data.slice(-3);
 
         const tCount =
-            last3.filter(x => x === 'T').length;
+            last3
+                .filter(x => x === 'T')
+                .length;
 
         const xCount =
-            last3.filter(x => x === 'X').length;
+            last3
+                .filter(x => x === 'X')
+                .length;
 
         let prediction;
         let confidence;
