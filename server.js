@@ -51,51 +51,40 @@ class UltraDicePredictionSystem {
         this.initAllModels();
     }
 
-    initAllModels() {
-        // Khởi tạo tất cả models (21 chính + 21 mini + 42 hỗ trợ)
+      initAllModels() {
         for (let i = 1; i <= 21; i++) {
-            // Model chính
-            this.models[`model${i}`] = this[`model${i}`].bind(this);
-            // Model mini
-            this.models[`model${i}Mini`] = this[`model${i}Mini`].bind(this);
-            // Model hỗ trợ
-            this.models[`model${i}Support1`] = this[`model${i}Support1`].bind(this);
-            this.models[`model${i}Support2`] = this[`model${i}Support2`].bind(this);
-            
-            // Khởi tạo trọng số và hiệu suất
-            this.weights[`model${i}`] = 1;
-            this.performance[`model${i}`] = { 
-                correct: 0, 
-                total: 0,
-                recentCorrect: 0,
-                recentTotal: 0,
-                streak: 0,
-                maxStreak: 0
-            };
+
+            if (typeof this[`model${i}`] === "function") {
+                this.models[`model${i}`] = this[`model${i}`].bind(this);
+                this.weights[`model${i}`] = 1;
+                this.performance[`model${i}`] = {
+                    correct: 0,
+                    total: 0,
+                    recentCorrect: 0,
+                    recentTotal: 0,
+                    streak: 0,
+                    maxStreak: 0
+                };
+            }
+
+            if (typeof this[`model${i}Mini`] === "function") {
+                this.models[`model${i}Mini`] = this[`model${i}Mini`].bind(this);
+            }
+
+            if (typeof this[`model${i}Support1`] === "function") {
+                this.models[`model${i}Support1`] = this[`model${i}Support1`].bind(this);
+            }
+
+            if (typeof this[`model${i}Support2`] === "function") {
+                this.models[`model${i}Support2`] = this[`model${i}Support2`].bind(this);
+            }
         }
-        
-        // Khởi tạo cơ sở dữ liệu pattern
+
         this.initPatternDatabase();
         this.initAdvancedPatterns();
         this.initSupportModels();
     }
-
-    initPatternDatabase() {
-        this.patternDatabase = {
-            '1-1': { pattern: ['T', 'X', 'T', 'X'], probability: 0.7, strength: 0.8 },
-            '1-2-1': { pattern: ['T', 'X', 'X', 'T'], probability: 0.65, strength: 0.75 },
-            '2-1-2': { pattern: ['T', 'T', 'X', 'T', 'T'], probability: 0.68, strength: 0.78 },
-            '3-1': { pattern: ['T', 'T', 'T', 'X'], probability: 0.72, strength: 0.82 },
-            '1-3': { pattern: ['T', 'X', 'X', 'X'], probability: 0.72, strength: 0.82 },
-            '2-2': { pattern: ['T', 'T', 'X', 'X'], probability: 0.66, strength: 0.76 },
-            '2-3': { pattern: ['T', 'T', 'X', 'X', 'X'], probability: 0.71, strength: 0.81 },
-            '3-2': { pattern: ['T', 'T', 'T', 'X', 'X'], probability: 0.73, strength: 0.83 },
-            '4-1': { pattern: ['T', 'T', 'T', 'T', 'X'], probability: 0.76, strength: 0.86 },
-            '1-4': { pattern: ['T', 'X', 'X', 'X', 'X'], probability: 0.76, strength: 0.86 },
-            // Thêm các pattern khác
-        };
-    }
-
+  
     initAdvancedPatterns() {
         this.advancedPatterns = {
             // Pattern động học (adaptive patterns)
@@ -187,37 +176,53 @@ class UltraDicePredictionSystem {
         };
     }
 
-    initSupportModels() {
+      initSupportModels() {
         // Khởi tạo các model hỗ trợ bổ sung
         for (let i = 1; i <= 21; i++) {
-            // Thêm các model hỗ trợ phụ
-            this.models[`model${i}Support3`] = this[`model${i}Support3`].bind(this);
-            this.models[`model${i}Support4`] = this[`model${i}Support4`].bind(this);
+
+            if (this[`model${i}Support3`]) {
+                this.models[`model${i}Support3`] =
+                    this[`model${i}Support3`].bind(this);
+            }
+
+            if (this[`model${i}Support4`]) {
+                this.models[`model${i}Support4`] =
+                    this[`model${i}Support4`].bind(this);
+            }
         }
     }
 
     arraysEqual(arr1, arr2) {
         if (arr1.length !== arr2.length) return false;
+
         for (let i = 0; i < arr1.length; i++) {
             if (arr1[i] !== arr2[i]) return false;
         }
+
         return true;
     }
 
     addResult(result) {
         // Cập nhật thống kê session
         if (this.history.length > 0) {
-            const lastResult = this.history[this.history.length-1];
-            const transitionKey = `${lastResult}to${result}`;
-            this.sessionStats.transitions[transitionKey] = (this.sessionStats.transitions[transitionKey] || 0) + 1;
-            
+            const lastResult =
+                this.history[this.history.length - 1];
+
+            const transitionKey =
+                `${lastResult}to${result}`;
+
+            this.sessionStats.transitions[transitionKey] =
+                (this.sessionStats.transitions[transitionKey] || 0) + 1;
+
             // Cập nhật streak
             if (result === lastResult) {
                 this.sessionStats.streaks[result]++;
-                this.sessionStats.streaks[`max${result}`] = Math.max(
-                    this.sessionStats.streaks[`max${result}`],
-                    this.sessionStats.streaks[result]
-                );
+
+                this.sessionStats.streaks[`max${result}`] =
+                    Math.max(
+                        this.sessionStats.streaks[`max${result}`],
+                        this.sessionStats.streaks[result]
+                    );
             } else {
                 this.sessionStats.streaks[result] = 1;
                 this.sessionStats.streaks[lastResult] = 0;
@@ -225,57 +230,75 @@ class UltraDicePredictionSystem {
         } else {
             this.sessionStats.streaks[result] = 1;
         }
-        
+
         this.history.push(result);
+
         if (this.history.length > 200) {
             this.history.shift();
         }
-        
+
         // Cập nhật độ biến động
         this.updateVolatility();
-        
+
         // Cập nhật độ tin cậy pattern
         this.updatePatternConfidence();
-        
+
         // Cập nhật trạng thái thị trường
         this.updateMarketState();
-        
+
         // Cập nhật cơ sở dữ liệu pattern
         this.updatePatternDatabase();
     }
 
     updateVolatility() {
         if (this.history.length < 10) return;
-        
+
         const recent = this.history.slice(-10);
         let changes = 0;
+
         for (let i = 1; i < recent.length; i++) {
-            if (recent[i] !== recent[i-1]) changes++;
+            if (recent[i] !== recent[i - 1]) {
+                changes++;
+            }
         }
-        
-        this.sessionStats.volatility = changes / (recent.length - 1);
+
+        this.sessionStats.volatility =
+            changes / (recent.length - 1);
     }
 
-    updatePatternConfidence() {
+      updatePatternConfidence() {
         // Kiểm tra độ chính xác của các pattern đã được sử dụng
-        for (const [patternName, confidence] of Object.entries(this.sessionStats.patternConfidence)) {
+        for (const [patternName, confidence] of Object.entries(
+            this.sessionStats.patternConfidence
+        )) {
             if (this.history.length < 2) continue;
-            
-            const lastResult = this.history[this.history.length-1];
-            
+
+            const lastResult =
+                this.history[this.history.length - 1];
+
             // Đơn giản hóa: giảm confidence nếu pattern dự đoán sai
             if (this.advancedPatterns[patternName]) {
-                const prediction = this.advancedPatterns[patternName].predict(this.history.slice(0, -1));
+                const prediction =
+                    this.advancedPatterns[patternName].predict(
+                        this.history.slice(0, -1)
+                    );
+
                 if (prediction !== lastResult) {
-                    this.sessionStats.patternConfidence[patternName] = Math.max(
-                        0.1, 
-                        confidence * this.adaptiveParameters.patternConfidenceDecay
-                    );
+                    this.sessionStats.patternConfidence[patternName] =
+                        Math.max(
+                            0.1,
+                            confidence *
+                                this.adaptiveParameters
+                                    .patternConfidenceDecay
+                        );
                 } else {
-                    this.sessionStats.patternConfidence[patternName] = Math.min(
-                        0.95, 
-                        confidence * this.adaptiveParameters.patternConfidenceGrowth
-                    );
+                    this.sessionStats.patternConfidence[patternName] =
+                        Math.min(
+                            0.95,
+                            confidence *
+                                this.adaptiveParameters
+                                    .patternConfidenceGrowth
+                        );
                 }
             }
         }
@@ -283,35 +306,56 @@ class UltraDicePredictionSystem {
 
     updateMarketState() {
         if (this.history.length < 15) return;
-        
-        const recent = this.history.slice(-15);
-        const tCount = recent.filter(x => x === 'T').length;
-        const xCount = recent.filter(x => x === 'X').length;
-        
+
+        const recent =
+            this.history.slice(-15);
+
+        const tCount =
+            recent.filter(x => x === 'T').length;
+
+        const xCount =
+            recent.filter(x => x === 'X').length;
+
         // Tính trend strength
-        const trendStrength = Math.abs(tCount - xCount) / recent.length;
-        
+        const trendStrength =
+            Math.abs(tCount - xCount) / recent.length;
+
         // Xác định trend
-        if (trendStrength > this.adaptiveParameters.trendStrengthThreshold) {
-            this.marketState.trend = tCount > xCount ? 'up' : 'down';
+        if (
+            trendStrength >
+            this.adaptiveParameters.trendStrengthThreshold
+        ) {
+            this.marketState.trend =
+                tCount > xCount ? 'up' : 'down';
         } else {
             this.marketState.trend = 'neutral';
         }
-        
+
         // Tính momentum (dựa trên thay đổi gần đây)
         let momentum = 0;
+
         for (let i = 1; i < recent.length; i++) {
-            if (recent[i] === recent[i-1]) {
-                momentum += recent[i] === 'T' ? 0.1 : -0.1;
+            if (recent[i] === recent[i - 1]) {
+                momentum +=
+                    recent[i] === 'T'
+                        ? 0.1
+                        : -0.1;
             }
         }
-        this.marketState.momentum = Math.tanh(momentum); // Chuẩn hóa về [-1, 1]
-        
+
+        // Chuẩn hóa momentum về [-1, 1]
+        this.marketState.momentum =
+            Math.tanh(momentum);
+
         // Tính stability (ngược với volatility)
-        this.marketState.stability = 1 - this.sessionStats.volatility;
-        
+        this.marketState.stability =
+            1 - this.sessionStats.volatility;
+
         // Xác định regime
-        if (this.sessionStats.volatility > this.adaptiveParameters.volatilityThreshold) {
+        if (
+            this.sessionStats.volatility >
+            this.adaptiveParameters.volatilityThreshold
+        ) {
             this.marketState.regime = 'volatile';
         } else if (trendStrength > 0.7) {
             this.marketState.regime = 'trending';
@@ -322,7 +366,7 @@ class UltraDicePredictionSystem {
         }
     }
 
-    updatePatternDatabase() {
+      updatePatternDatabase() {
         if (this.history.length < 10) return;
         
         // Phát hiện pattern mới từ lịch sử
@@ -398,28 +442,51 @@ class UltraDicePredictionSystem {
         };
     }
 
-    model2Mini(data) {
-        const tCount = data.filter(x => x === 'T').length;
-        const xCount = data.filter(x => x === 'X').length;
-        
-        let trend = tCount > xCount ? 'up' : (xCount > tCount ? 'down' : 'neutral');
-        let strength = Math.abs(tCount - xCount) / data.length;
-        
+      model2Mini(data) {
+        const tCount =
+            data.filter(x => x === 'T').length;
+
+        const xCount =
+            data.filter(x => x === 'X').length;
+
+        let trend =
+            tCount > xCount
+                ? 'up'
+                : xCount > tCount
+                    ? 'down'
+                    : 'neutral';
+
+        let strength =
+            Math.abs(tCount - xCount) /
+            data.length;
+
         // Phân tích chi tiết hơn
         let changes = 0;
         for (let i = 1; i < data.length; i++) {
-            if (data[i] !== data[i-1]) changes++;
+            if (data[i] !== data[i - 1]) {
+                changes++;
+            }
         }
-        
-        const volatility = changes / (data.length - 1);
-        strength = strength * (1 - volatility / 2); // Điều chỉnh strength based on volatility
-        
-        return { trend, strength, volatility };
+
+        const volatility =
+            changes / (data.length - 1);
+
+        // Điều chỉnh strength dựa trên volatility
+        strength =
+            strength * (1 - volatility / 2);
+
+        return {
+            trend,
+            strength,
+            volatility
+        };
     }
 
     model2Support1() {
         // Phân tích chất lượng trend
-        const quality = this.analyzeTrendQuality();
+        const quality =
+            this.analyzeTrendQuality();
+
         return {
             status: "Phân tích chất lượng trend",
             quality
@@ -428,7 +495,9 @@ class UltraDicePredictionSystem {
 
     model2Support2() {
         // Xác định điểm đảo chiều tiềm năng
-        const reversalPoints = this.findPotentialReversals();
+        const reversalPoints =
+            this.findPotentialReversals();
+
         return {
             status: "Xác định điểm đảo chiều",
             points: reversalPoints
@@ -436,96 +505,171 @@ class UltraDicePredictionSystem {
     }
 
     analyzeTrendQuality() {
-        if (this.history.length < 20) return { quality: 'unknown', score: 0 };
-        
+        if (this.history.length < 20) {
+            return {
+                quality: 'unknown',
+                score: 0
+            };
+        }
+
         const trends = [];
+
         for (let i = 5; i <= 20; i += 5) {
             if (this.history.length >= i) {
-                const analysis = this.model2Mini(this.history.slice(-i));
+                const analysis =
+                    this.model2Mini(
+                        this.history.slice(-i)
+                    );
+
                 trends.push(analysis);
             }
         }
-        
+
         // Tính consistency giữa các trends
         let consistent = true;
+
         for (let i = 1; i < trends.length; i++) {
-            if (trends[i].trend !== trends[0].trend) {
+            if (
+                trends[i].trend !==
+                trends[0].trend
+            ) {
                 consistent = false;
                 break;
             }
         }
-        
-        const avgStrength = trends.reduce((sum, t) => sum + t.strength, 0) / trends.length;
-        const avgVolatility = trends.reduce((sum, t) => sum + t.volatility, 0) / trends.length;
-        
-        const qualityScore = avgStrength * (1 - avgVolatility);
+
+        const avgStrength =
+            trends.reduce(
+                (sum, t) => sum + t.strength,
+                0
+            ) / trends.length;
+
+        const avgVolatility =
+            trends.reduce(
+                (sum, t) => sum + t.volatility,
+                0
+            ) / trends.length;
+
+        const qualityScore =
+            avgStrength * (1 - avgVolatility);
+
         let quality;
-        
-        if (qualityScore > 0.7) quality = 'excellent';
-        else if (qualityScore > 0.5) quality = 'good';
-        else if (qualityScore > 0.3) quality = 'fair';
-        else quality = 'poor';
-        
-        return { quality, score: qualityScore, consistent };
+
+        if (qualityScore > 0.7) {
+            quality = 'excellent';
+        } else if (qualityScore > 0.5) {
+            quality = 'good';
+        } else if (qualityScore > 0.3) {
+            quality = 'fair';
+        } else {
+            quality = 'poor';
+        }
+
+        return {
+            quality,
+            score: qualityScore,
+            consistent
+        };
     }
 
     findPotentialReversals() {
         const points = [];
-        if (this.history.length < 15) return points;
-        
-        // Tìm các điểm mà trend có thể đảo chiều
-        for (let i = 10; i < this.history.length - 5; i++) {
-            const before = this.history.slice(i - 5, i);
-            const after = this.history.slice(i, i + 5);
-            
-            const beforeAnalysis = this.model2Mini(before);
-            const afterAnalysis = this.model2Mini(after);
-            
-            if (beforeAnalysis.trend !== afterAnalysis.trend && 
-                beforeAnalysis.strength > 0.6 && 
-                afterAnalysis.strength > 0.6) {
+
+        if (this.history.length < 15) {
+            return points;
+        }
+
+        // Tìm các điểm trend có thể đảo chiều
+        for (
+            let i = 10;
+            i < this.history.length - 5;
+            i++
+        ) {
+            const before =
+                this.history.slice(i - 5, i);
+
+            const after =
+                this.history.slice(i, i + 5);
+
+            const beforeAnalysis =
+                this.model2Mini(before);
+
+            const afterAnalysis =
+                this.model2Mini(after);
+
+            if (
+                beforeAnalysis.trend !==
+                    afterAnalysis.trend &&
+                beforeAnalysis.strength > 0.6 &&
+                afterAnalysis.strength > 0.6
+            ) {
                 points.push({
                     position: i,
-                    beforeTrend: beforeAnalysis.trend,
-                    afterTrend: afterAnalysis.trend,
-                    strength: (beforeAnalysis.strength + afterAnalysis.strength) / 2
+                    beforeTrend:
+                        beforeAnalysis.trend,
+                    afterTrend:
+                        afterAnalysis.trend,
+                    strength:
+                        (beforeAnalysis.strength +
+                            afterAnalysis.strength) /
+                        2
                 });
             }
         }
-        
+
         return points;
     }
 
-    // MODEL 3: Xem trong 12 phiên gần nhất có sự chênh lệch cao thì sẽ dự đoán bên còn lại
+      // MODEL 3: Xem trong 12 phiên gần nhất có sự chênh lệch cao
+    // thì sẽ dự đoán bên còn lại (mean reversion)
     model3() {
-        const recent = this.history.slice(-12);
-        if (recent.length < 12) return null;
-        
-        const analysis = this.model3Mini(recent);
-        
-        if (analysis.difference < 0.4) return null;
-        
-        // Điều chỉnh confidence dựa trên market regime
-        let confidence = analysis.difference * 0.8;
+        const recent =
+            this.history.slice(-12);
+
+        if (recent.length < 12) {
+            return null;
+        }
+
+        const analysis =
+            this.model3Mini(recent);
+
+        if (analysis.difference < 0.4) {
+            return null;
+        }
+
+        // Điều chỉnh confidence theo market regime
+        let confidence =
+            analysis.difference * 0.8;
+
         if (this.marketState.regime === 'random') {
             confidence *= 1.1;
         } else if (this.marketState.regime === 'trending') {
             confidence *= 0.9;
         }
-        
+
         return {
             prediction: analysis.prediction,
             confidence: Math.min(0.95, confidence),
-            reason: `Chênh lệch cao (${Math.round(analysis.difference * 100)}%) trong 12 phiên, dự đoán cân bằng`
+            reason:
+                `Chênh lệch cao (${Math.round(
+                    analysis.difference * 100
+                )}%) trong 12 phiên, dự đoán cân bằng`
         };
     }
 
     model3Mini(data) {
-        const tCount = data.filter(x => x === 'T').length;
-        const xCount = data.filter(x => x === 'X').length;
-        const total = data.length;
-        const difference = Math.abs(tCount - xCount) / total;
-        
+        const tCount =
+            data.filter(x => x === 'T').length;
+
+        const xCount =
+            data.filter(x => x === 'X').length;
+
+        const total =
+            data.length;
+
+        const difference =
+            Math.abs(tCount - xCount) / total;
+
         return {
             difference,
             prediction: tCount > xCount ? 'X' : 'T',
@@ -535,8 +679,10 @@ class UltraDicePredictionSystem {
     }
 
     model3Support1() {
-        // Phân tích hiệu quả của mean reversion
-        const effectiveness = this.analyzeMeanReversionEffectiveness();
+        // Phân tích hiệu quả mean reversion
+        const effectiveness =
+            this.analyzeMeanReversionEffectiveness();
+
         return {
             status: "Phân tích hiệu quả mean reversion",
             effectiveness
@@ -545,7 +691,9 @@ class UltraDicePredictionSystem {
 
     model3Support2() {
         // Tìm ngưỡng chênh lệch tối ưu
-        const optimalThreshold = this.findOptimalDifferenceThreshold();
+        const optimalThreshold =
+            this.findOptimalDifferenceThreshold();
+
         return {
             status: "Tìm ngưỡng chênh lệch tối ưu",
             threshold: optimalThreshold
@@ -553,104 +701,165 @@ class UltraDicePredictionSystem {
     }
 
     analyzeMeanReversionEffectiveness() {
-        if (this.history.length < 30) return { effectiveness: 'unknown', successRate: 0 };
-        
+        if (this.history.length < 30) {
+            return {
+                effectiveness: 'unknown',
+                successRate: 0
+            };
+        }
+
         let successes = 0;
         let opportunities = 0;
-        
+
         for (let i = 12; i < this.history.length; i++) {
-            const segment = this.history.slice(i - 12, i);
-            const tCount = segment.filter(x => x === 'T').length;
-            const xCount = segment.filter(x => x === 'X').length;
-            const difference = Math.abs(tCount - xCount) / segment.length;
-            
+            const segment =
+                this.history.slice(i - 12, i);
+
+            const tCount =
+                segment.filter(x => x === 'T').length;
+
+            const xCount =
+                segment.filter(x => x === 'X').length;
+
+            const difference =
+                Math.abs(tCount - xCount) /
+                segment.length;
+
             if (difference >= 0.4) {
                 opportunities++;
-                const prediction = tCount > xCount ? 'X' : 'T';
+
+                const prediction =
+                    tCount > xCount ? 'X' : 'T';
+
                 if (this.history[i] === prediction) {
                     successes++;
                 }
             }
         }
-        
-        const successRate = opportunities > 0 ? successes / opportunities : 0;
+
+        const successRate =
+            opportunities > 0
+                ? successes / opportunities
+                : 0;
+
         let effectiveness;
-        
-        if (successRate > 0.6) effectiveness = 'high';
-        else if (successRate > 0.5) effectiveness = 'medium';
-        else effectiveness = 'low';
-        
-        return { effectiveness, successRate, opportunities };
+
+        if (successRate > 0.6) {
+            effectiveness = 'high';
+        } else if (successRate > 0.5) {
+            effectiveness = 'medium';
+        } else {
+            effectiveness = 'low';
+        }
+
+        return {
+            effectiveness,
+            successRate,
+            opportunities
+        };
     }
 
     findOptimalDifferenceThreshold() {
-        if (this.history.length < 50) return 0.4;
-        
+        if (this.history.length < 50) {
+            return 0.4;
+        }
+
         let bestThreshold = 0.4;
         let bestSuccessRate = 0;
-        
+
         // Test các threshold khác nhau
-        for (let threshold = 0.3; threshold <= 0.6; threshold += 0.05) {
+        for (
+            let threshold = 0.3;
+            threshold <= 0.6;
+            threshold += 0.05
+        ) {
             let successes = 0;
             let opportunities = 0;
-            
+
             for (let i = 12; i < this.history.length; i++) {
-                const segment = this.history.slice(i - 12, i);
-                const tCount = segment.filter(x => x === 'T').length;
-                const xCount = segment.filter(x => x === 'X').length;
-                const difference = Math.abs(tCount - xCount) / segment.length;
-                
+                const segment =
+                    this.history.slice(i - 12, i);
+
+                const tCount =
+                    segment.filter(x => x === 'T').length;
+
+                const xCount =
+                    segment.filter(x => x === 'X').length;
+
+                const difference =
+                    Math.abs(tCount - xCount) /
+                    segment.length;
+
                 if (difference >= threshold) {
                     opportunities++;
-                    const prediction = tCount > xCount ? 'X' : 'T';
+
+                    const prediction =
+                        tCount > xCount ? 'X' : 'T';
+
                     if (this.history[i] === prediction) {
                         successes++;
                     }
                 }
             }
-            
-            const successRate = opportunities > 0 ? successes / opportunities : 0;
+
+            const successRate =
+                opportunities > 0
+                    ? successes / opportunities
+                    : 0;
+
             if (successRate > bestSuccessRate) {
                 bestSuccessRate = successRate;
                 bestThreshold = threshold;
             }
         }
-        
+
         return bestThreshold;
     }
 
-    // MODEL 4: Bắt cầu ngắn hạn
+      // MODEL 4: Bắt cầu ngắn hạn
     model4() {
         const recent = this.history.slice(-6);
-        if (recent.length < 4) return null;
-        
-        const analysis = this.model4Mini(recent);
-        
-        if (analysis.confidence < 0.6) return null;
-        
-        // Điều chỉnh confidence dựa trên market regime
+
+        if (recent.length < 4) {
+            return null;
+        }
+
+        const analysis =
+            this.model4Mini(recent);
+
+        if (analysis.confidence < 0.6) {
+            return null;
+        }
+
         let confidence = analysis.confidence;
+
         if (this.marketState.regime === 'trending') {
             confidence *= 1.1;
         } else if (this.marketState.regime === 'volatile') {
             confidence *= 0.9;
         }
-        
+
         return {
             prediction: analysis.prediction,
             confidence: Math.min(0.95, confidence),
-            reason: `Cầu ngắn hạn ${analysis.trend} với độ tin cậy ${analysis.confidence.toFixed(2)}`
+            reason:
+                `Cầu ngắn hạn ${analysis.trend} với độ tin cậy ${analysis.confidence.toFixed(2)}`
         };
     }
 
     model4Mini(data) {
-        // Phân tích momentum ngắn hạn
         const last3 = data.slice(-3);
-        const tCount = last3.filter(x => x === 'T').length;
-        const xCount = last3.filter(x => x === 'X').length;
-        
-        let prediction, confidence, trend;
-        
+
+        const tCount =
+            last3.filter(x => x === 'T').length;
+
+        const xCount =
+            last3.filter(x => x === 'X').length;
+
+        let prediction;
+        let confidence;
+        let trend;
+
         if (tCount === 3) {
             prediction = 'T';
             confidence = 0.7;
@@ -668,27 +877,39 @@ class UltraDicePredictionSystem {
             confidence = 0.65;
             trend = 'Giảm nhẹ';
         } else {
-            // Phân tích pattern phức tạp hơn
-            const changes = data.slice(-4).filter((val, idx, arr) => 
-                idx > 0 && val !== arr[idx-1]).length;
-            
+            const changes =
+                data
+                    .slice(-4)
+                    .filter((val, idx, arr) =>
+                        idx > 0 && val !== arr[idx - 1]
+                    ).length;
+
             if (changes >= 3) {
-                prediction = data[data.length - 1] === 'T' ? 'X' : 'T';
+                prediction =
+                    data[data.length - 1] === 'T'
+                        ? 'X'
+                        : 'T';
                 confidence = 0.6;
                 trend = 'Đảo chiều';
             } else {
-                prediction = data[data.length - 1];
+                prediction =
+                    data[data.length - 1];
                 confidence = 0.55;
                 trend = 'Ổn định';
             }
         }
-        
-        return { prediction, confidence, trend };
+
+        return {
+            prediction,
+            confidence,
+            trend
+        };
     }
 
     model4Support1() {
-        // Phân tích hiệu quả momentum ngắn hạn
-        const effectiveness = this.analyzeShortTermMomentumEffectiveness();
+        const effectiveness =
+            this.analyzeShortTermMomentumEffectiveness();
+
         return {
             status: "Phân tích hiệu quả momentum ngắn hạn",
             effectiveness
@@ -696,8 +917,9 @@ class UltraDicePredictionSystem {
     }
 
     model4Support2() {
-        // Tối ưu hóa khung thời gian cho momentum
-        const optimalTimeframe = this.findOptimalMomentumTimeframe();
+        const optimalTimeframe =
+            this.findOptimalMomentumTimeframe();
+
         return {
             status: "Tối ưu khung thời gian momentum",
             timeframe: optimalTimeframe
@@ -705,44 +927,62 @@ class UltraDicePredictionSystem {
     }
 
     analyzeShortTermMomentumEffectiveness() {
-        if (this.history.length < 20) return { effectiveness: 'unknown', successRate: 0 };
-        
+        if (this.history.length < 20) {
+            return {
+                effectiveness: 'unknown',
+                successRate: 0
+            };
+        }
+
         let successes = 0;
         let opportunities = 0;
-        
+
         for (let i = 6; i < this.history.length; i++) {
-            const segment = this.history.slice(i - 6, i);
-            const analysis = this.model4Mini(segment);
-            
+            const segment =
+                this.history.slice(i - 6, i);
+
+            const analysis =
+                this.model4Mini(segment);
+
             if (analysis.confidence >= 0.6) {
                 opportunities++;
+
                 if (this.history[i] === analysis.prediction) {
                     successes++;
                 }
             }
         }
-        
-        const successRate = opportunities > 0 ? successes / opportunities : 0;
+
+        const successRate =
+            opportunities > 0
+                ? successes / opportunities
+                : 0;
+
         let effectiveness;
-        
-        if (successRate > 0.6) effectiveness = 'high';
-        else if (successRate > 0.5) effectiveness = 'medium';
-        else effectiveness = 'low';
-        
-        return { effectiveness, successRate, opportunities };
+
+        if (successRate > 0.6) {
+            effectiveness = 'high';
+        } else if (successRate > 0.5) {
+            effectiveness = 'medium';
+        } else {
+            effectiveness = 'low';
+        }
+
+        return {
+            effectiveness,
+            successRate,
+            opportunities
+        };
     }
 
-findOptimalMomentumTimeframe() {
-    if (this.history.length < 50) return 6;
+    findOptimalMomentumTimeframe() {
+        if (this.history.length < 50) {
+            return 6;
+        }
 
-    let bestTimeframe = 6;
-    let bestSuccessRate = 0;
-
-    return bestTimeframe;
-}
-
-} // 👈👈👈 DÒNG NÀY – ĐÓNG CLASS (BẮT BUỘC)
-
+        // Chưa triển khai tối ưu sâu → trả mặc định an toàn
+        return 6;
+    }
 
 /* ================== INIT ENGINE ================== */
 const engineTX = new UltraDicePredictionSystem();
