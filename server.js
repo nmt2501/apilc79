@@ -36,7 +36,7 @@ class UltraDicePredictionSystem {
             trend: 'neutral',
             momentum: 0,
             stability: 0.5,
-            regime: 'normal' // normal, volatile, trending, random
+            regime: 'normal'
         };
         this.adaptiveParameters = {
             patternMinLength: 3,
@@ -52,32 +52,51 @@ class UltraDicePredictionSystem {
     initAllModels() {
         // Khởi tạo tất cả models (21 chính + 21 mini + 42 hỗ trợ)
         for (let i = 1; i <= 21; i++) {
-            // Model chính
-            this.models[`model${i}`] = this[`model${i}`].bind(this);
-            // Model mini
-            this.models[`model${i}Mini`] = this[`model${i}Mini`].bind(this);
-            // Model hỗ trợ
-            this.models[`model${i}Support1`] = this[`model${i}Support1`].bind(this);
-            this.models[`model${i}Support2`] = this[`model${i}Support2`].bind(this);
-            
-            // Khởi tạo trọng số và hiệu suất
-            this.weights[`model${i}`] = 1;
-            this.performance[`model${i}`] = { 
-                correct: 0, 
-                total: 0,
-                recentCorrect: 0,
-                recentTotal: 0,
-                streak: 0,
-                maxStreak: 0
-            };
-        }
-        
-        // Khởi tạo cơ sở dữ liệu pattern
-        this.initPatternDatabase();
-        this.initAdvancedPatterns();
-        this.initSupportModels();
-    }
 
+            // ===== MODEL CHÍNH =====
+            if (typeof this[`model${i}`] === "function") {
+                this.models[`model${i}`] = this[`model${i}`].bind(this);
+
+                this.weights[`model${i}`] = 1;
+                this.performance[`model${i}`] = { 
+                    correct: 0, 
+                    total: 0,
+                    recentCorrect: 0,
+                    recentTotal: 0,
+                    streak: 0,
+                    maxStreak: 0
+                };
+            }
+
+            // ===== MODEL MINI =====
+            if (typeof this[`model${i}Mini`] === "function") {
+                this.models[`model${i}Mini`] = this[`model${i}Mini`].bind(this);
+            }
+
+            // ===== MODEL SUPPORT =====
+            if (typeof this[`model${i}Support1`] === "function") {
+                this.models[`model${i}Support1`] = this[`model${i}Support1`].bind(this);
+            }
+
+            if (typeof this[`model${i}Support2`] === "function") {
+                this.models[`model${i}Support2`] = this[`model${i}Support2`].bind(this);
+            }
+        }
+
+        // Init các hệ phụ trợ (nếu có)
+        if (typeof this.initPatternDatabase === "function") {
+            this.initPatternDatabase();
+        }
+
+        if (typeof this.initAdvancedPatterns === "function") {
+            this.initAdvancedPatterns();
+        }
+
+        if (typeof this.initSupportModels === "function") {
+            this.initSupportModels();
+        }
+    }
+}
     initPatternDatabase() {
         this.patternDatabase = {
             '1-1': { pattern: ['T', 'X', 'T', 'X'], probability: 0.7, strength: 0.8 },
