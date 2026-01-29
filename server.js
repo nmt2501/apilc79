@@ -233,7 +233,7 @@ class UltraDicePredictionSystem {
 
         this.history.push(result);
 
-        if (this.history.length > 200) {
+        if (this.history.length > 30) {
             this.history.shift();
         }
 
