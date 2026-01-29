@@ -735,8 +735,7 @@ class UltraDicePredictionSystem {
         
         let bestTimeframe = 6;
         let bestSuccessRate = 0;
-        
-
+    }
 // ===== INIT ENGINE =====
 const engineTX = new UltraDicePredictionSystem();
 const engineMD5 = new UltraDicePredictionSystem();
@@ -816,8 +815,6 @@ app.get("/api/lc79/md5", (req, res) => {
     id: "BI NHOI - LC79 VIP PRO"
   });
 });
-
-} // đóng class UltraDicePredictionSystem
 
 /* ================== START ================== */
 const PORT = process.env.PORT || 3000;
