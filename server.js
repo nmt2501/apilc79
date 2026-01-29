@@ -817,6 +817,8 @@ app.get("/api/lc79/md5", (req, res) => {
   });
 });
 
+} // đóng class UltraDicePredictionSystem
+
 /* ================== START ================== */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
