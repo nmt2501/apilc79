@@ -366,6 +366,10 @@ class UltraDicePredictionSystem {
         }
     }
 
+      initPatternDatabase() {
+        this.patternDatabase = {};
+    }
+
       updatePatternDatabase() {
         if (this.history.length < 10) return;
         
