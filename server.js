@@ -351,7 +351,7 @@ class UltraDicePredictionSystem {
         this.marketState.stability =
             1 - this.sessionStats.volatility;
 
-        // Xác định regime
+        // Xác định regime (KHÔNG RANDOM)
         if (
             this.sessionStats.volatility >
             this.adaptiveParameters.volatilityThreshold
@@ -359,15 +359,9 @@ class UltraDicePredictionSystem {
             this.marketState.regime = 'volatile';
         } else if (trendStrength > 0.7) {
             this.marketState.regime = 'trending';
-        } else if (trendStrength < 0.3) {
-            this.marketState.regime = 'random';
         } else {
             this.marketState.regime = 'normal';
         }
-    }
-
-      initPatternDatabase() {
-        this.patternDatabase = {};
     }
 
       updatePatternDatabase() {
