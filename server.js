@@ -19,6 +19,7 @@ function toTX(kq) {
 
 /* ================== ENGINE ================== */
 class UltraDicePredictionSystem {
+
     constructor() {
         this.history = [];
         this.models = {};
@@ -28,18 +29,8 @@ class UltraDicePredictionSystem {
         this.advancedPatterns = {};
 
         this.sessionStats = {
-            streaks: {
-                T: 0,
-                X: 0,
-                maxT: 0,
-                maxX: 0
-            },
-            transitions: {
-                TtoT: 0,
-                TtoX: 0,
-                XtoT: 0,
-                XtoX: 0
-            },
+            streaks: { T: 0, X: 0, maxT: 0, maxX: 0 },
+            transitions: { TtoT: 0, TtoX: 0, XtoT: 0, XtoX: 0 },
             volatility: 0.5,
             patternConfidence: {},
             recentAccuracy: 0,
@@ -50,146 +41,91 @@ class UltraDicePredictionSystem {
             trend: 'neutral',
             momentum: 0,
             stability: 0.5,
-            regime: 'normal' // normal | volatile | trending
+            regime: 'normal'
         };
 
         this.adaptiveParameters = {
-            patternMinLength: 3,
-            patternMaxLength: 8,
             volatilityThreshold: 0.7,
-            trendStrengthThreshold: 0.6,
-            patternConfidenceDecay: 0.95,
-            patternConfidenceGrowth: 1.05
+            trendStrengthThreshold: 0.6
         };
 
         this.initAllModels();
     }
 
-    /* ================== INIT MODELS ================== */
     initAllModels() {
         for (let i = 1; i <= 21; i++) {
             if (typeof this[`model${i}`] === "function") {
                 this.models[`model${i}`] = this[`model${i}`].bind(this);
-                this.weights[`model${i}`] = 1;
-                this.performance[`model${i}`] = {
-                    correct: 0,
-                    total: 0,
-                    recentCorrect: 0,
-                    recentTotal: 0,
-                    streak: 0,
-                    maxStreak: 0
-                };
-            }
-
-            if (typeof this[`model${i}Mini`] === "function") {
-                this.models[`model${i}Mini`] = this[`model${i}Mini`].bind(this);
-            }
-
-            if (typeof this[`model${i}Support1`] === "function") {
-                this.models[`model${i}Support1`] = this[`model${i}Support1`].bind(this);
-            }
-
-            if (typeof this[`model${i}Support2`] === "function") {
-                this.models[`model${i}Support2`] = this[`model${i}Support2`].bind(this);
             }
         }
-
-        // ❌ ĐÃ LOẠI BỎ RANDOM / PATTERN DATABASE
     }
 
-    /* ================== ADD RESULT ================== */
     addResult(result) {
         if (result !== 'T' && result !== 'X') return;
 
-        if (this.history.length > 0) {
-            const lastResult = this.history[this.history.length - 1];
-
-            if (result === lastResult) {
-                this.sessionStats.streaks[result]++;
-
-                const maxKey = `max${result}`;
-                this.sessionStats.streaks[maxKey] = Math.max(
-                    this.sessionStats.streaks[maxKey],
-                    this.sessionStats.streaks[result]
-                );
-            } else {
-                this.sessionStats.streaks[result] = 1;
-                this.sessionStats.streaks[lastResult] = 0;
-            }
-
-            const key = `${lastResult}to${result}`;
-            if (this.sessionStats.transitions[key] !== undefined) {
-                this.sessionStats.transitions[key]++;
-            }
-        } else {
-            this.sessionStats.streaks[result] = 1;
-        }
-
         this.history.push(result);
-
-        if (this.history.length > 30) {
-            this.history.shift();
-        }
+        if (this.history.length > 30) this.history.shift();
 
         this.updateVolatility();
         this.updateMarketState();
     }
 
-    /* ================== MARKET STATE ================== */
     updateMarketState() {
         if (this.history.length < 15) return;
 
         const recent = this.history.slice(-15);
+        const t = recent.filter(x => x === 'T').length;
+        const x = recent.filter(x => x === 'X').length;
 
-        const tCount = recent.filter(x => x === 'T').length;
-        const xCount = recent.filter(x => x === 'X').length;
-
-        const trendStrength = Math.abs(tCount - xCount) / recent.length;
-
-        if (trendStrength > this.adaptiveParameters.trendStrengthThreshold) {
-            this.marketState.trend = tCount > xCount ? 'up' : 'down';
-        } else {
-            this.marketState.trend = 'neutral';
-        }
-
-        let momentum = 0;
-        for (let i = 1; i < recent.length; i++) {
-            if (recent[i] === recent[i - 1]) {
-                momentum += recent[i] === 'T' ? 0.1 : -0.1;
-            }
-        }
-
-        this.marketState.momentum = Math.tanh(momentum);
-        this.marketState.stability = 1 - this.sessionStats.volatility;
-
-        if (this.sessionStats.volatility > this.adaptiveParameters.volatilityThreshold) {
-            this.marketState.regime = 'volatile';
-        } else if (trendStrength > 0.7) {
-            this.marketState.regime = 'trending';
-        } else {
-            this.marketState.regime = 'normal';
-        }
+        const strength = Math.abs(t - x) / recent.length;
+        this.marketState.trend =
+            strength > this.adaptiveParameters.trendStrengthThreshold
+                ? (t > x ? 'up' : 'down')
+                : 'neutral';
     }
 
-    /* ================== VOLATILITY ================== */
     updateVolatility() {
         if (this.history.length < 10) return;
 
-        const recent = this.history.slice(-10);
-        let changes = 0;
+        const r = this.history.slice(-10);
+        let c = 0;
+        for (let i = 1; i < r.length; i++) {
+            if (r[i] !== r[i - 1]) c++;
+        }
+        this.sessionStats.volatility = c / (r.length - 1);
+    }
 
-        for (let i = 1; i < recent.length; i++) {
-            if (recent[i] !== recent[i - 1]) {
-                changes++;
-            }
+    /* ================== CORE PREDICT ================== */
+    predict() {
+        let vote = { T: 0, X: 0 };
+        let tong_model = 0;
+
+        for (const model of Object.values(this.models)) {
+            const r = model?.();
+            if (!r || !['T', 'X'].includes(r.prediction)) continue;
+
+            vote[r.prediction] += r.confidence || 0;
+            tong_model++;
         }
 
-        this.sessionStats.volatility = changes / (recent.length - 1);
+        if (tong_model === 0) {
+            return {
+                du_doan: "Chờ dữ liệu",
+                do_tin_cay: "0%",
+                tong_model: 0,
+                vote
+            };
+        }
+
+        const du_doan = vote.T >= vote.X ? "Tài" : "Xỉu";
+        const do_tin_cay =
+            Math.min(96, Math.round(Math.max(vote.T, vote.X) * 100)) + "%";
+
+        return { du_doan, do_tin_cay, tong_model, vote };
     }
 }
 
 module.exports = UltraDicePredictionSystem;
-
 
     /* ================== CORE PREDICT ================== */
     predict() {
