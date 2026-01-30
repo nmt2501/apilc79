@@ -193,12 +193,10 @@ module.exports = UltraDicePredictionSystem;
 
     /* ================== CORE PREDICT ================== */
     predict() {
-
         let vote = { T: 0, X: 0 };
         let tong_model = 0;
 
         for (const model of Object.values(this.models)) {
-
             if (typeof model !== "function") continue;
 
             const r = model();
@@ -213,7 +211,6 @@ module.exports = UltraDicePredictionSystem;
             tong_model++;
         }
 
-        // Nếu chưa đủ dữ liệu
         if (tong_model === 0) {
             return {
                 du_doan: "Chờ dữ liệu",
@@ -223,17 +220,11 @@ module.exports = UltraDicePredictionSystem;
             };
         }
 
-        const du_doan =
-            vote.T >= vote.X
-                ? "Tài"
-                : "Xỉu";
+        const du_doan = vote.T >= vote.X ? "Tài" : "Xỉu";
 
         const do_tin_cay =
-            Math.min(
-                96,
-                Math.round(
-                    Math.max(vote.T, vote.X) * 100
-                )
+            Math.min(96,
+                Math.round(Math.max(vote.T, vote.X) * 100)
             ) + "%";
 
         return {
@@ -243,9 +234,7 @@ module.exports = UltraDicePredictionSystem;
             vote
         };
     }
-
-} // ✅ ĐÓNG CLASS – BẮT BUỘC PHẢI CÓ
-
+} // ✅ CHỈ ĐƯỢC ĐÓNG CLASS Ở ĐÂY
 
 /* ================== INIT ENGINE ================== */
 const engineTX =
