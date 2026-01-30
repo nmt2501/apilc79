@@ -19,25 +19,24 @@ function toTX(kq) {
 
 /* ================== ENGINE ================== */
 class UltraDicePredictionSystem {
-
     constructor() {
         this.history = [];
         this.sessionStats = { volatility: 0.5 };
         this.marketState = { trend: "neutral", regime: "normal" };
     }
 
-    /* ================== ADD RESULT ================== */
+    /* ===== ADD RESULT ===== */
     addResult(result) {
         if (result !== "T" && result !== "X") return;
 
         this.history.push(result);
-        if (this.history.length > 30) this.history.shift();
+        if (this.history.length > 40) this.history.shift();
 
         this.updateVolatility();
         this.updateMarketState();
     }
 
-    /* ================== VOLATILITY ================== */
+    /* ===== VOLATILITY ===== */
     updateVolatility() {
         if (this.history.length < 10) return;
 
@@ -49,7 +48,7 @@ class UltraDicePredictionSystem {
         this.sessionStats.volatility = change / (r.length - 1);
     }
 
-    /* ================== MARKET ================== */
+    /* ===== MARKET STATE ===== */
     updateMarketState() {
         if (this.history.length < 15) return;
 
@@ -58,7 +57,7 @@ class UltraDicePredictionSystem {
         const x = r.filter(x => x === "X").length;
         const strength = Math.abs(t - x) / r.length;
 
-        if (strength > 0.6) {
+        if (strength >= 0.6) {
             this.marketState.trend = t > x ? "up" : "down";
             this.marketState.regime = "trending";
         } else {
@@ -67,34 +66,38 @@ class UltraDicePredictionSystem {
         }
     }
 
-    /* ================== PATTERN ENGINE ================== */
+    /* ===== PATTERN ENGINE ===== */
     analyzePattern() {
-        const h = this.history;
-        if (h.length < 6) return null;
+        if (this.history.length < 6) return null;
 
-        const last6 = h.slice(-6).join("");
-        const last3 = h.slice(-3).join("");
+        const h = this.history.join("");
 
-        // Pattern lặp
+        // Cầu lặp 3-3 (TXT TXT)
+        const last6 = h.slice(-6);
         if (last6.slice(0, 3) === last6.slice(3)) {
-            return last6[2] === "T" ? "X" : "T";
+            return last6[5] === "T" ? "X" : "T";
         }
 
-        // Cầu bệt
-        if (/^T{3,}$/.test(last3)) return "T";
-        if (/^X{3,}$/.test(last3)) return "X";
+        // Bệt
+        if (/T{4,}$/.test(h)) return "T";
+        if (/X{4,}$/.test(h)) return "X";
+
+        // Xen kẽ
+        const last5 = h.slice(-5);
+        if (last5 === "TXT XT".replace(/ /g, "")) return "T";
+        if (last5 === "XTX TX".replace(/ /g, "")) return "X";
 
         return null;
     }
 
-    /* ================== CORE PREDICT ================== */
+    /* ===== CORE PREDICT ===== */
     predict() {
         if (this.history.length < 6) {
             return {
                 du_doan: "Chờ dữ liệu",
                 do_tin_cay: "0%",
-                tong_model: 0,
-                vote: { T: 0, X: 0 }
+                vote: { T: 0, X: 0 },
+                pattern_pick: null
             };
         }
 
@@ -108,26 +111,29 @@ class UltraDicePredictionSystem {
             voteX *= 0.8;
         }
 
-        // ⭐ PATTERN BONUS
+        // Trend bonus
+        if (this.marketState.trend === "up") voteT += 1;
+        if (this.marketState.trend === "down") voteX += 1;
+
+        // Pattern bonus
         const patternPick = this.analyzePattern();
-        if (patternPick === "T") voteT += 1.2;
-        if (patternPick === "X") voteX += 1.2;
+        if (patternPick === "T") voteT += 1.5;
+        if (patternPick === "X") voteX += 1.5;
 
         const du_doan = voteT >= voteX ? "Tài" : "Xỉu";
         const do_tin_cay =
-            Math.min(96, Math.round(Math.max(voteT, voteX) / 7 * 100)) + "%";
+            Math.min(97, Math.round(Math.max(voteT, voteX) / 8 * 100)) + "%";
 
         return {
             du_doan,
             do_tin_cay,
-            tong_model: 2,
-            vote: { T: voteT, X: voteX },
+            vote: { T: Number(voteT.toFixed(2)), X: Number(voteX.toFixed(2)) },
             pattern_pick: patternPick
         };
     }
 }
 
-/* ================== INIT ================== */
+/* ================== INIT ENGINE ================== */
 const engineTX = new UltraDicePredictionSystem();
 const engineMD5 = new UltraDicePredictionSystem();
 
@@ -140,7 +146,7 @@ async function fetchTX() {
             lastTX = data;
             engineTX.addResult(toTX(data.ket_qua));
         }
-    } catch (e) {}
+    } catch {}
 }
 
 async function fetchMD5() {
@@ -151,7 +157,7 @@ async function fetchMD5() {
             lastMD5 = data;
             engineMD5.addResult(toTX(data.ket_qua));
         }
-    } catch (e) {}
+    } catch {}
 }
 
 setInterval(fetchTX, 8000);
@@ -191,7 +197,7 @@ function buildResponse(source, last, engine) {
             do_dai: engine.history.length
         },
 
-        engine: engine.marketState,
+        market: engine.marketState,
         id: "LC79 PATTERN AI 2026"
     };
 }
@@ -208,5 +214,5 @@ app.get("/api/lc79/md5", (req, res) => {
 /* ================== START ================== */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log("🚀 LC79 PATTERN AI RUNNING", PORT);
+    console.log("🚀 LC79 PATTERN AI RUNNING ON PORT", PORT);
 });
