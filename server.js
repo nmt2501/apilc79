@@ -200,7 +200,6 @@ module.exports = UltraDicePredictionSystem;
             if (typeof model !== "function") continue;
 
             const r = model();
-
             if (
                 !r ||
                 !r.prediction ||
@@ -221,7 +220,6 @@ module.exports = UltraDicePredictionSystem;
         }
 
         const du_doan = vote.T >= vote.X ? "Tài" : "Xỉu";
-
         const do_tin_cay =
             Math.min(96,
                 Math.round(Math.max(vote.T, vote.X) * 100)
@@ -234,8 +232,8 @@ module.exports = UltraDicePredictionSystem;
             vote
         };
     }
-} // ✅ CHỈ ĐƯỢC ĐÓNG CLASS Ở ĐÂY
 
+} // ✅ CHỈ ĐƯỢC ĐÓNG CLASS Ở ĐÂY
 /* ================== INIT ENGINE ================== */
 const engineTX =
     new UltraDicePredictionSystem();
