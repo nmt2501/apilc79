@@ -40,528 +40,457 @@ function convertHistory(points) {
 
 }
 
+
 // ====== THUẬT TOÁN DỰ ĐOÁN NÂNG CAO PRO ======
-function predictNextAdvancedPro(currentResult, history) {
-
-    if (history.length < 15) {
-        const baseConfidence = 60 + Math.floor(Math.random() * 25)
-
-        return {
-            du_doan: Math.random() < 0.58 ?
-                (currentResult.ket_qua === "Tài" ? "Xỉu" : "Tài") :
-                currentResult.ket_qua,
-            do_tin_cay: baseConfidence,
-            mau_cau: "Khởi tạo hệ thống dự đoán"
+function predictNextAdvancedPro($currentResult, $history) {
+    if (count($history) < 15) {
+        $baseConfidence = 60 + mt_rand(0, 25); // 60-85
+        return [
+            'du_doan' => mt_rand(0, 100) < 58 ? 
+                ($currentResult['ket_qua'] === "Tài" ? "Xỉu" : "Tài") : 
+                $currentResult['ket_qua'],
+            'do_tin_cay' => $baseConfidence,
+            'mau_cau' => 'Khởi tạo hệ thống dự đoán'
+        ];
+    }
+    
+    // Chuyển lịch sử thành chuỗi nhị phân
+    $historyString = implode('', array_map(function($h) {
+        return $h['ket_qua'] === "Tài" ? "1" : "0";
+    }, $history));
+    
+    $recentHistory = array_slice($history, -30);
+    $recentString = implode('', array_map(function($h) {
+        return $h['ket_qua'] === "Tài" ? "1" : "0";
+    }, $recentHistory));
+    
+    // ====== HỆ THỐNG PHÂN TÍCH ĐA TẦNG ======
+    $analyzers = [
+        'fourier' => ['weight' => 1.3, 'function' => 'analyzeFourier'],
+        'neural' => ['weight' => 1.2, 'function' => 'analyzeNeuralPattern'],
+        'markov_advanced' => ['weight' => 1.1, 'function' => 'analyzeMarkovAdvanced'],
+        'entropy' => ['weight' => 1.0, 'function' => 'analyzeEntropy'],
+        'trend_momentum' => ['weight' => 0.9, 'function' => 'analyzeTrendMomentum'],
+        'cluster' => ['weight' => 0.8, 'function' => 'analyzeCluster'],
+        'wavelet' => ['weight' => 0.7, 'function' => 'analyzeWavelet']
+    ];
+    
+    $predictions = [];
+    $weights = [];
+    $patternNotes = [];
+    
+    foreach ($analyzers as $name => $analyzer) {
+        $result = call_user_func($analyzer['function'], $historyString, $recentString, $recentHistory);
+        
+        if ($result['confidence'] > 0.55) {
+            $predictions[] = $result['prediction'];
+            $weights[] = $result['confidence'] * $analyzer['weight'];
+            $patternNotes[] = $result['pattern_note'] ?? $name;
         }
     }
-
-    const historyString = history.map(h => h.ket_qua === "Tài" ? "1" : "0").join("")
-
-    const recentHistory = history.slice(-30)
-
-    const recentString = recentHistory
-        .map(h => h.ket_qua === "Tài" ? "1" : "0")
-        .join("")
-
-    const analyzers = {
-
-        fourier: { weight: 1.3, func: analyzeFourier },
-
-        neural: { weight: 1.2, func: analyzeNeuralPattern },
-
-        markov: { weight: 1.1, func: analyzeMarkovAdvanced },
-
-        entropy: { weight: 1.0, func: analyzeEntropy },
-
-        trend: { weight: 0.9, func: analyzeTrendMomentum },
-
-        cluster: { weight: 0.8, func: analyzeCluster },
-
-        wavelet: { weight: 0.7, func: analyzeWavelet }
-    }
-
-    let predictions = []
-    let weights = []
-    let patternNotes = []
-
-    for (const name in analyzers) {
-
-        const result = analyzers[name].func(historyString, recentString, recentHistory)
-
-        if (result.confidence > 0.55) {
-
-            predictions.push(result.prediction)
-
-            weights.push(result.confidence * analyzers[name].weight)
-
-            patternNotes.push(result.pattern_note || name)
-
+    
+    // ====== TÍNH TOÁN XÁC SUẤT TỔNG HỢP ======
+    if (!empty($predictions)) {
+        // Tính điểm có trọng số
+        $scoreTai = 0;
+        $scoreXiu = 0;
+        
+        foreach ($predictions as $i => $pred) {
+            if ($pred === 'Tài') {
+                $scoreTai += $weights[$i];
+            } else {
+                $scoreXiu += $weights[$i];
+            }
         }
-    }
-
-    if (predictions.length > 0) {
-
-        let scoreTai = 0
-        let scoreXiu = 0
-
-        predictions.forEach((pred, i) => {
-
-            if (pred === "Tài") scoreTai += weights[i]
-            else scoreXiu += weights[i]
-
-        })
-
-        const totalScore = scoreTai + scoreXiu
-
-        const finalPrediction = scoreTai > scoreXiu ? "Tài" : "Xỉu"
-
-        const winningScore = Math.max(scoreTai, scoreXiu)
-
-        const rawConfidence = winningScore / totalScore
-
-        const methodCount = predictions.length
-
-        const consensusBonus = Math.min(0.2, (methodCount - 3) * 0.05)
-
-        const baseConfidence = 60 + rawConfidence * 25 + consensusBonus * 100
-
-        const confidence = Math.min(92, Math.max(60, baseConfidence))
-
-        let patternText = `Hệ thống AI (${predictions.length}/7 thuật toán)`
-
-        if (patternNotes.length > 0) {
-
-            const counts = {}
-
-            patternNotes.forEach(n => counts[n] = (counts[n] || 0) + 1)
-
-            const topPattern = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0]
-
-            patternText += " | Ưu thế: " + topPattern
+        
+        $totalScore = $scoreTai + $scoreXiu;
+        $finalPrediction = $scoreTai > $scoreXiu ? 'Tài' : 'Xỉu';
+        $winningScore = max($scoreTai, $scoreXiu);
+        
+        // Tính độ tin cậy dựa trên sự chênh lệch
+        $rawConfidence = ($winningScore / $totalScore);
+        
+        // Điều chỉnh dựa trên số lượng phương pháp đồng thuận
+        $methodCount = count($predictions);
+        $consensusBonus = min(0.2, ($methodCount - 3) * 0.05);
+        
+        // Chuyển đổi sang thang 60-92%
+        $baseConfidence = 60 + ($rawConfidence * 25) + ($consensusBonus * 100);
+        $confidence = min(92, max(60, $baseConfidence));
+        
+        // Tạo mẫu câu phân tích
+        $patternText = "Hệ thống AI (" . count($predictions) . "/7 thuật toán)";
+        if (!empty($patternNotes)) {
+            $dominantPatterns = array_count_values($patternNotes);
+            arsort($dominantPatterns);
+            $topPattern = key($dominantPatterns);
+            $patternText .= " | Ưu thế: " . $topPattern;
         }
-
-        return {
-
-            du_doan: finalPrediction,
-
-            do_tin_cay: Math.round(confidence * 100) / 100,
-
-            mau_cau: patternText
-        }
+        
+        return [
+            'du_doan' => $finalPrediction,
+            'do_tin_cay' => round($confidence, 2),
+            'mau_cau' => $patternText
+        ];
     }
-
-    return generateFallbackPrediction(recentHistory, currentResult)
+    
+    // ====== FALLBACK STRATEGY ======
+    return generateFallbackPrediction($recentHistory, $currentResult);
 }
 
-////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////
-
-function analyzeFourier(fullHistory, recentHistory) {
-
-    const n = recentHistory.length
-    if (n < 20) return { confidence: 0 }
-
-    let autocorr = {}
-
-    for (let lag = 1; lag <= Math.min(10, n - 1); lag++) {
-
-        let sum = 0
-
-        for (let i = 0; i < n - lag; i++) {
-
-            sum += (recentHistory[i] === recentHistory[i + lag]) ? 1 : -1
+// ====== CÁC THUẬT TOÁN PHÂN TÍCH NÂNG CAO ======
+function analyzeFourier($fullHistory, $recentHistory, $recentArray) {
+    // Phân tích tần số bằng biến đổi Fourier đơn giản
+    $n = strlen($recentHistory);
+    if ($n < 20) return ['confidence' => 0];
+    
+    // Tính toán autocorrelation
+    $autocorr = [];
+    for ($lag = 1; $lag <= min(10, $n-1); $lag++) {
+        $sum = 0;
+        for ($i = 0; $i < $n - $lag; $i++) {
+            $sum += ($recentHistory[$i] === $recentHistory[$i + $lag]) ? 1 : -1;
         }
-
-        autocorr[lag] = sum / (n - lag)
+        $autocorr[$lag] = $sum / ($n - $lag);
     }
-
-    let maxCorr = 0
-    let bestLag = 0
-
-    for (const lag in autocorr) {
-
-        if (Math.abs(autocorr[lag]) > maxCorr && lag >= 2) {
-
-            maxCorr = Math.abs(autocorr[lag])
-
-            bestLag = lag
+    
+    // Tìm chu kỳ có autocorrelation cao nhất
+    $maxCorr = 0;
+    $bestLag = 0;
+    foreach ($autocorr as $lag => $corr) {
+        if (abs($corr) > $maxCorr && $lag >= 2) {
+            $maxCorr = abs($corr);
+            $bestLag = $lag;
         }
     }
-
-    if (maxCorr > 0.3) {
-
-        const prediction = recentHistory[n - bestLag] === "1" ? "Tài" : "Xỉu"
-
-        return {
-
-            prediction,
-
-            confidence: Math.min(0.85, maxCorr * 1.5),
-
-            pattern_note: `Fourier cycle lag ${bestLag}`
-        }
+    
+    if ($maxCorr > 0.3 && $bestLag > 0) {
+        $prediction = $recentHistory[$n - $bestLag] === '1' ? 'Tài' : 'Xỉu';
+        return [
+            'prediction' => $prediction,
+            'confidence' => min(0.85, $maxCorr * 1.5),
+            'pattern_note' => 'Phân tích chu kỳ Fourier (lag ' . $bestLag . ')'
+        ];
     }
-
-    return { confidence: 0 }
+    
+    return ['confidence' => 0];
 }
 
-////////////////////////////////////////////////////////
-
-function analyzeNeuralPattern(fullHistory, recentHistory) {
-
-    const n = recentHistory.length
-    if (n < 25) return { confidence: 0 }
-
-    const patternLength = 5
-
-    const currentPattern = recentHistory.slice(-patternLength)
-
-    let matches = {}
-
-    for (let i = 0; i <= n - patternLength - 1; i++) {
-
-        const test = recentHistory.slice(i, i + patternLength)
-
-        let similarity = 0
-
-        for (let j = 0; j < patternLength; j++) {
-
-            if (currentPattern[j] === test[j]) similarity++
-        }
-
-        similarity = similarity / patternLength
-
-        if (similarity >= 0.8) {
-
-            const nextChar = recentHistory[i + patternLength]
-
-            matches[nextChar] = (matches[nextChar] || 0) + similarity
-        }
-    }
-
-    const score1 = matches["1"] || 0
-    const score0 = matches["0"] || 0
-
-    if (score1 + score0 > 0) {
-
-        const ratio = Math.max(score1, score0) / (score1 + score0)
-
-        if (ratio > 0.65) {
-
-            return {
-
-                prediction: score1 > score0 ? "Tài" : "Xỉu",
-
-                confidence: Math.min(0.9, ratio),
-
-                pattern_note: "Neural pattern similarity"
+function analyzeNeuralPattern($fullHistory, $recentHistory, $recentArray) {
+    // Mô phỏng mạng neural đơn giản nhận diện pattern
+    $n = strlen($recentHistory);
+    if ($n < 25) return ['confidence' => 0];
+    
+    // Tạo các pattern con để tìm kiếm
+    $patternLength = 5;
+    $currentPattern = substr($recentHistory, -$patternLength);
+    
+    // Tìm tất cả vị trí xuất hiện pattern tương tự
+    $matches = [];
+    for ($i = 0; $i <= $n - $patternLength - 1; $i++) {
+        $testPattern = substr($recentHistory, $i, $patternLength);
+        $similarity = similar_text($currentPattern, $testPattern) / $patternLength;
+        
+        if ($similarity >= 0.8) {
+            if ($i + $patternLength < $n) {
+                $nextChar = $recentHistory[$i + $patternLength];
+                $matches[$nextChar] = ($matches[$nextChar] ?? 0) + $similarity;
             }
         }
     }
-
-    return { confidence: 0 }
-}
-
-////////////////////////////////////////////////////////
-
-function analyzeMarkovAdvanced(fullHistory) {
-
-    const n = fullHistory.length
-
-    if (n < 30) return { confidence: 0 }
-
-    const order = 3
-
-    let matrix = {}
-
-    for (let i = order; i < n; i++) {
-
-        const state = fullHistory.slice(i - order, i)
-
-        const next = fullHistory[i]
-
-        if (!matrix[state]) matrix[state] = { "0": 0, "1": 0 }
-
-        matrix[state][next]++
-    }
-
-    const currentState = fullHistory.slice(-order)
-
-    if (matrix[currentState]) {
-
-        const count0 = matrix[currentState]["0"]
-
-        const count1 = matrix[currentState]["1"]
-
-        const total = count0 + count1
-
-        if (total >= 5) {
-
-            const prob1 = count1 / total
-
-            const prob0 = count0 / total
-
-            const confidence = Math.abs(prob1 - prob0)
-
-            if (confidence > 0.25) {
-
-                return {
-
-                    prediction: prob1 > prob0 ? "Tài" : "Xỉu",
-
-                    confidence: Math.min(0.85, confidence * 2),
-
-                    pattern_note: "Markov chain"
-                }
+    
+    if (count($matches) >= 3) {
+        $score1 = $matches['1'] ?? 0;
+        $score0 = $matches['0'] ?? 0;
+        
+        if (($score1 + $score0) > 0) {
+            $ratio = max($score1, $score0) / ($score1 + $score0);
+            
+            if ($ratio > 0.65) {
+                return [
+                    'prediction' => $score1 > $score0 ? 'Tài' : 'Xỉu',
+                    'confidence' => min(0.9, $ratio),
+                    'pattern_note' => 'Nhận diện pattern Neural (độ tương đồng ' . round($ratio*100) . '%)'
+                ];
             }
         }
     }
-
-    return { confidence: 0 }
+    
+    return ['confidence' => 0];
 }
 
-////////////////////////////////////////////////////////
-
-function analyzeEntropy(fullHistory, recentHistory) {
-
-    const n = recentHistory.length
-    if (n < 20) return { confidence: 0 }
-
-    const ones = recentHistory.split("1").length - 1
-    const zeros = recentHistory.split("0").length - 1
-
-    const p1 = ones / n
-    const p0 = zeros / n
-
-    let entropy = 0
-
-    if (p1 > 0) entropy -= p1 * Math.log2(p1)
-    if (p0 > 0) entropy -= p0 * Math.log2(p0)
-
-    const randomness = entropy
-
-    const last = recentHistory[n - 1]
-
-    if (randomness > 0.9) {
-
-        return {
-
-            prediction: last === "1" ? "Xỉu" : "Tài",
-
-            confidence: 0.65,
-
-            pattern_note: "Entropy đảo chiều"
+function analyzeMarkovAdvanced($fullHistory, $recentHistory, $recentArray) {
+    // Mô hình Markov bậc 3
+    $n = strlen($fullHistory);
+    if ($n < 30) return ['confidence' => 0];
+    
+    $order = 3;
+    $transitionMatrix = [];
+    
+    // Xây dựng ma trận chuyển tiếp
+    for ($i = $order; $i < $n; $i++) {
+        $state = substr($fullHistory, $i - $order, $order);
+        $next = $fullHistory[$i];
+        
+        if (!isset($transitionMatrix[$state])) {
+            $transitionMatrix[$state] = ['0' => 0, '1' => 0];
+        }
+        $transitionMatrix[$state][$next]++;
+    }
+    
+    // Lấy state hiện tại
+    $currentState = substr($fullHistory, -$order);
+    
+    if (isset($transitionMatrix[$currentState])) {
+        $count0 = $transitionMatrix[$currentState]['0'];
+        $count1 = $transitionMatrix[$currentState]['1'];
+        $total = $count0 + $count1;
+        
+        if ($total >= 5) {
+            $prob1 = $count1 / $total;
+            $prob0 = $count0 / $total;
+            
+            $confidence = abs($prob1 - $prob0);
+            
+            if ($confidence > 0.25) {
+                return [
+                    'prediction' => $prob1 > $prob0 ? 'Tài' : 'Xỉu',
+                    'confidence' => min(0.85, $confidence * 2),
+                    'pattern_note' => 'Markov bậc ' . $order . ' (xác suất: ' . round(max($prob1, $prob0)*100) . '%)'
+                ];
+            }
         }
     }
-
-    if (randomness < 0.3) {
-
-        return {
-
-            prediction: last === "1" ? "Tài" : "Xỉu",
-
-            confidence: 0.75,
-
-            pattern_note: "Entropy xu hướng"
-        }
-    }
-
-    return { confidence: 0 }
+    
+    return ['confidence' => 0];
 }
 
-////////////////////////////////////////////////////////
+function analyzeEntropy($fullHistory, $recentHistory, $recentArray) {
+    // Phân tích entropy và tính ngẫu nhiên
+    $n = strlen($recentHistory);
+    if ($n < 20) return ['confidence' => 0];
+    
+    // Tính entropy của chuỗi
+    $counts = count_chars($recentHistory, 1);
+    $entropy = 0;
+    $total = $n;
+    
+    foreach ($counts as $count) {
+        $p = $count / $total;
+        $entropy -= $p * log($p, 2);
+    }
+    
+    $maxEntropy = 1; // Chuỗi nhị phân max entropy = 1
+    $randomness = $entropy / $maxEntropy;
+    
+    // Nếu chuỗi quá ngẫu nhiên, dự đoán đảo chiều
+    if ($randomness > 0.9) {
+        $lastChar = $recentHistory[$n-1];
+        return [
+            'prediction' => $lastChar === '1' ? 'Xỉu' : 'Tài',
+            'confidence' => 0.65,
+            'pattern_note' => 'Entropy cao (' . round($randomness*100) . '%), dự đoán đảo chiều'
+        ];
+    }
+    // Nếu chuỗi có tính deterministic cao
+    elseif ($randomness < 0.3) {
+        $lastChar = $recentHistory[$n-1];
+        return [
+            'prediction' => $lastChar === '1' ? 'Tài' : 'Xỉu',
+            'confidence' => 0.75,
+            'pattern_note' => 'Entropy thấp (' . round($randomness*100) . '%), tiếp tục xu hướng'
+        ];
+    }
+    
+    return ['confidence' => 0];
+}
 
-function analyzeTrendMomentum(fullHistory, recentHistory) {
-
-    const n = recentHistory.length
-    if (n < 15) return { confidence: 0 }
-
-    let momentum = 0
-
-    for (let i = 1; i < n; i++) {
-
-        if (recentHistory[i] === recentHistory[i - 1]) {
-
-            momentum += recentHistory[i] === "1" ? 1 : -1
-
+function analyzeTrendMomentum($fullHistory, $recentHistory, $recentArray) {
+    // Phân tích động lượng và xu hướng
+    $n = strlen($recentHistory);
+    if ($n < 15) return ['confidence' => 0];
+    
+    // Tính động lượng (momentum)
+    $momentum = 0;
+    for ($i = 1; $i < $n; $i++) {
+        if ($recentHistory[$i] === $recentHistory[$i-1]) {
+            $momentum += ($recentHistory[$i] === '1') ? 1 : -1;
         } else {
-
-            momentum = 0
+            $momentum = 0;
         }
     }
-
-    if (Math.abs(momentum) > 3) {
-
-        return {
-
-            prediction: momentum > 0 ? "Xỉu" : "Tài",
-
-            confidence: 0.7,
-
-            pattern_note: "Momentum đảo chiều"
+    
+    // Tính RSI đơn giản
+    $upChanges = 0;
+    $downChanges = 0;
+    
+    for ($i = 1; $i < $n; $i++) {
+        if ($recentHistory[$i] === '1' && $recentHistory[$i-1] === '0') {
+            $upChanges++;
+        } elseif ($recentHistory[$i] === '0' && $recentHistory[$i-1] === '1') {
+            $downChanges++;
         }
     }
-
-    return { confidence: 0 }
+    
+    $totalChanges = $upChanges + $downChanges;
+    $rsi = ($totalChanges > 0) ? ($upChanges / $totalChanges) : 0.5;
+    
+    // Đưa ra dự đoán dựa trên momentum và RSI
+    if (abs($momentum) > 3) {
+        if ($momentum > 0 && $rsi > 0.7) {
+            return [
+                'prediction' => 'Xỉu',
+                'confidence' => 0.7,
+                'pattern_note' => 'Động lượng Tài mạnh (RSI: ' . round($rsi*100) . '%), dự báo điều chỉnh'
+            ];
+        } elseif ($momentum < 0 && $rsi < 0.3) {
+            return [
+                'prediction' => 'Tài',
+                'confidence' => 0.7,
+                'pattern_note' => 'Động lượng Xỉu mạnh (RSI: ' . round($rsi*100) . '%), dự báo phục hồi'
+            ];
+        }
+    }
+    
+    return ['confidence' => 0];
 }
 
-////////////////////////////////////////////////////////
-
-function analyzeCluster(fullHistory, recentHistory) {
-
-    const n = recentHistory.length
-
-    if (n < 25) return { confidence: 0 }
-
-    let clusters = []
-
-    let current = { type: recentHistory[0], length: 1 }
-
-    for (let i = 1; i < n; i++) {
-
-        if (recentHistory[i] === current.type) current.length++
-
-        else {
-
-            clusters.push(current)
-
-            current = { type: recentHistory[i], length: 1 }
+function analyzeCluster($fullHistory, $recentHistory, $recentArray) {
+    // Phân tích cụm và phân phối
+    $n = strlen($recentHistory);
+    if ($n < 25) return ['confidence' => 0];
+    
+    // Tìm các cụm liên tiếp
+    $clusters = [];
+    $currentCluster = ['type' => $recentHistory[0], 'length' => 1];
+    
+    for ($i = 1; $i < $n; $i++) {
+        if ($recentHistory[$i] === $currentCluster['type']) {
+            $currentCluster['length']++;
+        } else {
+            $clusters[] = $currentCluster;
+            $currentCluster = ['type' => $recentHistory[$i], 'length' => 1];
         }
     }
-
-    clusters.push(current)
-
-    const avg = clusters.reduce((a, b) => a + b.length, 0) / clusters.length
-
-    const last = clusters[clusters.length - 1]
-
-    if (last.length > avg * 1.5) {
-
-        return {
-
-            prediction: last.type === "1" ? "Xỉu" : "Tài",
-
-            confidence: Math.min(0.8, last.length / (avg * 2)),
-
-            pattern_note: "Cluster dài"
-        }
+    $clusters[] = $currentCluster;
+    
+    // Phân tích phân phối độ dài cụm
+    $clusterLengths = array_column($clusters, 'length');
+    $avgLength = array_sum($clusterLengths) / count($clusterLengths);
+    $lastCluster = end($clusters);
+    
+    // Nếu cụm cuối dài hơn trung bình đáng kể
+    if ($lastCluster['length'] > $avgLength * 1.5) {
+        return [
+            'prediction' => $lastCluster['type'] === '1' ? 'Xỉu' : 'Tài',
+            'confidence' => min(0.8, $lastCluster['length'] / ($avgLength * 2)),
+            'pattern_note' => 'Cụm ' . ($lastCluster['type'] === '1' ? 'Tài' : 'Xỉu') . ' kéo dài (' . $lastCluster['length'] . ' phiên)'
+        ];
     }
-
-    return { confidence: 0 }
+    
+    return ['confidence' => 0];
 }
 
-////////////////////////////////////////////////////////
-
-function analyzeWavelet(fullHistory, recentHistory) {
-
-    const n = recentHistory.length
-
-    if (n < 30) return { confidence: 0 }
-
-    const scales = [2, 3, 5]
-
-    let predictions = []
-
-    scales.forEach(scale => {
-
-        let down = ""
-
-        for (let i = 0; i < n; i += scale) {
-
-            const seg = recentHistory.slice(i, i + scale)
-
-            const ones = seg.split("1").length - 1
-
-            const zeros = seg.split("0").length - 1
-
-            down += ones > zeros ? "1" : "0"
+function analyzeWavelet($fullHistory, $recentHistory, $recentArray) {
+    // Phân tích đa tỉ lệ (wavelet-like)
+    $n = strlen($recentHistory);
+    if ($n < 30) return ['confidence' => 0];
+    
+    // Tạo các chuỗi con ở các tỉ lệ khác nhau
+    $scales = [2, 3, 5];
+    $predictionsAtScale = [];
+    
+    foreach ($scales as $scale) {
+        // Tạo chuỗi downsampled
+        $downsampled = '';
+        for ($i = 0; $i < $n; $i += $scale) {
+            $segment = substr($recentHistory, $i, min($scale, $n - $i));
+            $ones = substr_count($segment, '1');
+            $zeros = substr_count($segment, '0');
+            $downsampled .= ($ones > $zeros) ? '1' : '0';
         }
-
-        if (down.length >= 2) {
-
-            const last = down[down.length - 1]
-
-            const prev = down[down.length - 2]
-
-            if (last === prev) {
-
-                predictions.push(last === "1" ? "Tài" : "Xỉu")
-            }
-        }
-    })
-
-    if (predictions.length > 0) {
-
-        const counts = {}
-
-        predictions.forEach(p => counts[p] = (counts[p] || 0) + 1)
-
-        const dominant = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0]
-
-        const confidence = counts[dominant] / predictions.length
-
-        if (confidence > 0.66) {
-
-            return {
-
-                prediction: dominant,
-
-                confidence: Math.min(0.85, confidence),
-
-                pattern_note: "Wavelet multi scale"
+        
+        // Phân tích trend của chuỗi downsampled
+        if (strlen($downsampled) >= 5) {
+            $lastChar = $downsampled[strlen($downsampled)-1];
+            $secondLast = $downsampled[strlen($downsampled)-2];
+            
+            if ($lastChar === $secondLast) {
+                $predictionsAtScale[] = $lastChar === '1' ? 'Tài' : 'Xỉu';
             }
         }
     }
-
-    return { confidence: 0 }
+    
+    if (!empty($predictionsAtScale)) {
+        $counts = array_count_values($predictionsAtScale);
+        arsort($counts);
+        $dominantPrediction = key($counts);
+        $confidence = current($counts) / count($predictionsAtScale);
+        
+        if ($confidence > 0.66) {
+            return [
+                'prediction' => $dominantPrediction,
+                'confidence' => min(0.85, $confidence),
+                'pattern_note' => 'Phân tích đa tỉ lệ Wavelet (' . count($scales) . ' scale)'
+            ];
+        }
+    }
+    
+    return ['confidence' => 0];
 }
 
-////////////////////////////////////////////////////////
-
-function generateFallbackPrediction(recentHistory, currentResult) {
-
-    const historyString = recentHistory
-        .map(h => h.ket_qua === "Tài" ? "1" : "0")
-        .join("")
-
-    const n = historyString.length
-
-    if (n >= 3) {
-
-        const lastThree = historyString.slice(-3)
-
-        const patterns = {
-
-            "111": { pred: "Xỉu", conf: 68 },
-
-            "000": { pred: "Tài", conf: 68 },
-
-            "101": { pred: "Xỉu", conf: 65 },
-
-            "010": { pred: "Tài", conf: 65 }
-        }
-
-        if (patterns[lastThree]) {
-
-            return {
-
-                du_doan: patterns[lastThree].pred,
-
-                do_tin_cay: patterns[lastThree].conf,
-
-                mau_cau: "Fallback pattern"
-            }
+function generateFallbackPrediction($recentHistory, $currentResult) {
+    // Chiến lược dự phòng khi không có phương pháp nào đủ tin cậy
+    $historyString = implode('', array_map(function($h) {
+        return $h['ket_qua'] === "Tài" ? "1" : "0";
+    }, $recentHistory));
+    
+    $n = strlen($historyString);
+    
+    // 1. Kiểm tra mẫu đơn giản
+    if ($n >= 4) {
+        $lastThree = substr($historyString, -3);
+        $patterns = [
+            '111' => ['pred' => 'Xỉu', 'conf' => 68, 'note' => '3 Tài liên tiếp'],
+            '000' => ['pred' => 'Tài', 'conf' => 68, 'note' => '3 Xỉu liên tiếp'],
+            '101' => ['pred' => 'Xỉu', 'conf' => 65, 'note' => 'Mẫu xen kẽ 101'],
+            '010' => ['pred' => 'Tài', 'conf' => 65, 'note' => 'Mẫu xen kẽ 010']
+        ];
+        
+        if (isset($patterns[$lastThree])) {
+            return [
+                'du_doan' => $patterns[$lastThree]['pred'],
+                'do_tin_cay' => $patterns[$lastThree]['conf'],
+                'mau_cau' => $patterns[$lastThree]['note']
+            ];
         }
     }
-
-    return {
-
-        du_doan: currentResult.ket_qua === "Tài" ? "Xỉu" : "Tài",
-
-        do_tin_cay: 62 + Math.floor(Math.random() * 18),
-
-        mau_cau: "Đảo chiều cơ bản"
+    
+    // 2. Phân tích cân bằng
+    $countTai = substr_count($historyString, '1');
+    $countXiu = $n - $countTai;
+    
+    if (abs($countTai - $countXiu) > 5) {
+        $prediction = $countTai > $countXiu ? 'Xỉu' : 'Tài';
+        $imbalance = abs($countTai - $countXiu) / $n;
+        $confidence = 65 + min(20, $imbalance * 100);
+        
+        return [
+            'du_doan' => $prediction,
+            'do_tin_cay' => min(85, $confidence),
+            'mau_cau' => 'Điều chỉnh cân bằng (Tài:' . $countTai . '/Xỉu:' . $countXiu . ')'
+        ];
     }
+    
+    // 3. Dự đoán dựa trên phiên gần nhất
+    $lastResult = $currentResult['ket_qua'];
+    $alternateConfidence = 62 + mt_rand(0, 18);
+    
+    return [
+        'du_doan' => $lastResult === "Tài" ? "Xỉu" : "Tài",
+        'do_tin_cay' => $alternateConfidence,
+        'mau_cau' => 'Chiến lược đảo chiều cơ bản'
+    ];
 }
 
 
