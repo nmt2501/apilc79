@@ -621,8 +621,8 @@ fastify.get("/", async () => {
 // =============================
 // START SERVER
 // =============================
-fastify.listen({ port: 3000 }, () => {
+const PORT = process.env.PORT || 3000
 
-    console.log("API LC79 running http://localhost:3000")
-
+fastify.listen({ port: PORT, host: "0.0.0.0" }, () => {
+    console.log("API LC79 running")
 })
