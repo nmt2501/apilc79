@@ -567,9 +567,9 @@ function generateFallbackPrediction(recentHistory, currentResult) {
 
 
 // =============================
-// API
+// API LC79 MD5
 // =============================
-fastify.get("/", async () => {
+fastify.get("/api/lc79/md5", async () => {
 
     const res = await fetch(API_URL)
     const data = await res.json()
@@ -593,10 +593,11 @@ fastify.get("/", async () => {
         id: last.id
     }
 
-    // dùng thuật toán AI PRO mới
     const prediction = predictNextAdvancedPro(currentResult, history)
 
     return {
+
+        game: "LC79 MD5",
 
         phien_truoc: last.id,
 
