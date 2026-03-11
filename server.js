@@ -40,7 +40,6 @@ function convertHistory(points) {
 
 }
 
-
 // ====== THUẬT TOÁN DỰ ĐOÁN NÂNG CAO PRO ======
 function predictNextAdvancedPro(currentResult, history) {
 
@@ -619,12 +618,18 @@ fastify.get("/api/lc79/md5", async () => {
     }
 
 })
-
 // =============================
 // START SERVER
 // =============================
 const PORT = process.env.PORT || 3000
 
-fastify.listen({ port: PORT, host: "0.0.0.0" }, () => {
-    console.log("API LC79 running")
+fastify.listen({ port: PORT, host: "0.0.0.0" }, (err) => {
+
+    if (err) {
+        console.error(err)
+        process.exit(1)
+    }
+
+    console.log("LC79 API running on port", PORT)
+
 })
