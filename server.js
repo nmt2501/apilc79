@@ -149,6 +149,195 @@ function predictNextAdvancedPro(currentResult, history) {
 
 // ================= MODELS =================
 
+// ===== Fourier =====
+function analyzeFourier(fullHistory, recentHistory) {
+
+    const n = recentHistory.length
+    if (n < 20) return { confidence: 0 }
+
+    let same = 0
+
+    for (let i = 1; i < n; i++) {
+        if (recentHistory[i] === recentHistory[i - 1]) same++
+    }
+
+    const ratio = same / (n - 1)
+
+    if (ratio > 0.65) {
+        return {
+            prediction: recentHistory[n - 1] === "1" ? "Tài" : "Xỉu",
+            confidence: Math.min(0.8, ratio),
+            pattern_note: "Fourier trend"
+        }
+    }
+
+    return { confidence: 0 }
+}
+
+// ===== Neural =====
+function analyzeNeuralPattern(fullHistory, recentHistory) {
+
+    const n = recentHistory.length
+    if (n < 20) return { confidence: 0 }
+
+    const last5 = recentHistory.slice(-5)
+
+    let match = 0
+
+    for (let i = 0; i < n - 5; i++) {
+        const test = recentHistory.slice(i, i + 5)
+
+        if (test === last5) {
+            const next = recentHistory[i + 5]
+            if (next === "1") match++
+            else match--
+        }
+    }
+
+    if (Math.abs(match) >= 2) {
+        return {
+            prediction: match > 0 ? "Tài" : "Xỉu",
+            confidence: 0.7,
+            pattern_note: "Neural match"
+        }
+    }
+
+    return { confidence: 0 }
+}
+
+// ===== Markov =====
+function analyzeMarkovAdvanced(fullHistory) {
+
+    const n = fullHistory.length
+    if (n < 25) return { confidence: 0 }
+
+    let t = 0, x = 0
+
+    for (let i = 1; i < n; i++) {
+        if (fullHistory[i - 1] === fullHistory[i]) {
+            if (fullHistory[i] === "1") t++
+            else x++
+        }
+    }
+
+    if (t + x < 5) return { confidence: 0 }
+
+    const prob = t / (t + x)
+
+    return {
+        prediction: prob > 0.5 ? "Tài" : "Xỉu",
+        confidence: Math.abs(prob - 0.5) + 0.6,
+        pattern_note: "Markov"
+    }
+}
+
+// ===== Entropy =====
+function analyzeEntropy(fullHistory, recentHistory) {
+
+    const ones = recentHistory.split("1").length - 1
+    const zeros = recentHistory.split("0").length - 1
+
+    const total = ones + zeros
+    if (total === 0) return { confidence: 0 }
+
+    const p = ones / total
+
+    if (p > 0.7 || p < 0.3) {
+        return {
+            prediction: p > 0.5 ? "Xỉu" : "Tài",
+            confidence: 0.7,
+            pattern_note: "Entropy đảo"
+        }
+    }
+
+    return { confidence: 0 }
+}
+
+// ===== Trend =====
+function analyzeTrendMomentum(fullHistory, recentHistory) {
+
+    const n = recentHistory.length
+    if (n < 10) return { confidence: 0 }
+
+    let streak = 1
+
+    for (let i = n - 1; i > 0; i--) {
+        if (recentHistory[i] === recentHistory[i - 1]) streak++
+        else break
+    }
+
+    if (streak >= 3) {
+        return {
+            prediction: recentHistory[n - 1] === "1" ? "Xỉu" : "Tài",
+            confidence: 0.65,
+            pattern_note: "Trend đảo"
+        }
+    }
+
+    return { confidence: 0 }
+}
+
+// ===== Cluster =====
+function analyzeCluster(fullHistory, recentHistory) {
+
+    const n = recentHistory.length
+    if (n < 15) return { confidence: 0 }
+
+    let clusters = []
+    let count = 1
+
+    for (let i = 1; i < n; i++) {
+        if (recentHistory[i] === recentHistory[i - 1]) count++
+        else {
+            clusters.push(count)
+            count = 1
+        }
+    }
+    clusters.push(count)
+
+    const avg = clusters.reduce((a, b) => a + b, 0) / clusters.length
+    const last = clusters[clusters.length - 1]
+
+    if (last > avg * 1.5) {
+        return {
+            prediction: recentHistory[n - 1] === "1" ? "Xỉu" : "Tài",
+            confidence: 0.7,
+            pattern_note: "Cluster"
+        }
+    }
+
+    return { confidence: 0 }
+}
+
+// ===== Wavelet =====
+function analyzeWavelet(fullHistory, recentHistory) {
+
+    const n = recentHistory.length
+    if (n < 20) return { confidence: 0 }
+
+    let up = 0, down = 0
+
+    for (let i = 2; i < n; i += 2) {
+        const seg = recentHistory.slice(i - 2, i)
+
+        const ones = seg.split("1").length - 1
+        const zeros = seg.length - ones
+
+        if (ones > zeros) up++
+        else down++
+    }
+
+    if (up !== down) {
+        return {
+            prediction: up > down ? "Tài" : "Xỉu",
+            confidence: 0.65,
+            pattern_note: "Wavelet"
+        }
+    }
+
+    return { confidence: 0 }
+        }
+
 // ===== Bayesian =====
 function analyzeBayesian(fullHistory) {
     const n = fullHistory.length
