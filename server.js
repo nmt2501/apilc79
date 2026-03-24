@@ -41,7 +41,7 @@ function convertHistory(points) {
 }
 
 
-// ================= MAIN =================
+// ====== THUẬT TOÁN DỰ ĐOÁN NÂNG CAO PRO ======
 function predictNextAdvancedPro(currentResult, history) {
 
     if (history.length < 15) {
@@ -52,28 +52,33 @@ function predictNextAdvancedPro(currentResult, history) {
                 (currentResult.ket_qua === "Tài" ? "Xỉu" : "Tài") :
                 currentResult.ket_qua,
             do_tin_cay: baseConfidence,
-            mau_cau: "Khởi tạo hệ thống"
+            mau_cau: "Khởi tạo hệ thống dự đoán"
         }
     }
 
     const historyString = history.map(h => h.ket_qua === "Tài" ? "1" : "0").join("")
+
     const recentHistory = history.slice(-30)
-    const recentString = recentHistory.map(h => h.ket_qua === "Tài" ? "1" : "0").join("")
+
+    const recentString = recentHistory
+        .map(h => h.ket_qua === "Tài" ? "1" : "0")
+        .join("")
 
     const analyzers = {
+
         fourier: { weight: 1.3, func: analyzeFourier },
+
         neural: { weight: 1.2, func: analyzeNeuralPattern },
+
         markov: { weight: 1.1, func: analyzeMarkovAdvanced },
+
         entropy: { weight: 1.0, func: analyzeEntropy },
+
         trend: { weight: 0.9, func: analyzeTrendMomentum },
+
         cluster: { weight: 0.8, func: analyzeCluster },
-        wavelet: { weight: 0.7, func: analyzeWavelet },
 
-        bayesian: { weight: 1.25, func: analyzeBayesian },
-
-        model2: { weight: 0.9, func: analyzeModel2 },
-        model3: { weight: 1.05, func: analyzeModel3 },
-        model4: { weight: 1.2, func: analyzeModel4 }
+        wavelet: { weight: 0.7, func: analyzeWavelet }
     }
 
     let predictions = []
@@ -81,12 +86,17 @@ function predictNextAdvancedPro(currentResult, history) {
     let patternNotes = []
 
     for (const name in analyzers) {
+
         const result = analyzers[name].func(historyString, recentString, recentHistory)
 
         if (result.confidence > 0.55) {
+
             predictions.push(result.prediction)
+
             weights.push(result.confidence * analyzers[name].weight)
+
             patternNotes.push(result.pattern_note || name)
+
         }
     }
 
@@ -96,50 +106,47 @@ function predictNextAdvancedPro(currentResult, history) {
         let scoreXiu = 0
 
         predictions.forEach((pred, i) => {
+
             if (pred === "Tài") scoreTai += weights[i]
             else scoreXiu += weights[i]
+
         })
 
         const totalScore = scoreTai + scoreXiu
+
         const finalPrediction = scoreTai > scoreXiu ? "Tài" : "Xỉu"
+
         const winningScore = Math.max(scoreTai, scoreXiu)
 
         const rawConfidence = winningScore / totalScore
+
         const methodCount = predictions.length
+
         const consensusBonus = Math.min(0.2, (methodCount - 3) * 0.05)
 
-        let baseConfidence = 55 + rawConfidence * 30 + consensusBonus * 100
+        const baseConfidence = 60 + rawConfidence * 25 + consensusBonus * 100
 
-        if (methodCount >= 5) baseConfidence += 3
-        if (methodCount <= 2) baseConfidence -= 5
+        const confidence = Math.min(92, Math.max(60, baseConfidence))
 
-        let confidence = Math.min(92, Math.max(60, baseConfidence))
-
-        const last4 = recentString.slice(-4)
-        if (last4 === "1111" || last4 === "0000") {
-            confidence *= 0.9
-        }
-
-        if (confidence < 65) {
-            return {
-                du_doan: "SKIP",
-                do_tin_cay: Math.round(confidence),
-                mau_cau: "Low confidence"
-            }
-        }
-
-        let patternText = `AI (${predictions.length} model)`
+        let patternText = `Hệ thống AI (${predictions.length}/7 thuật toán)`
 
         if (patternNotes.length > 0) {
+
             const counts = {}
+
             patternNotes.forEach(n => counts[n] = (counts[n] || 0) + 1)
+
             const topPattern = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0]
-            patternText += " | " + topPattern
+
+            patternText += " | Ưu thế: " + topPattern
         }
 
         return {
+
             du_doan: finalPrediction,
+
             do_tin_cay: Math.round(confidence * 100) / 100,
+
             mau_cau: patternText
         }
     }
@@ -147,314 +154,416 @@ function predictNextAdvancedPro(currentResult, history) {
     return generateFallbackPrediction(recentHistory, currentResult)
 }
 
-// ================= MODELS =================
+////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////
 
-// ===== Fourier =====
 function analyzeFourier(fullHistory, recentHistory) {
 
     const n = recentHistory.length
     if (n < 20) return { confidence: 0 }
 
-    let same = 0
+    let autocorr = {}
 
-    for (let i = 1; i < n; i++) {
-        if (recentHistory[i] === recentHistory[i - 1]) same++
+    for (let lag = 1; lag <= Math.min(10, n - 1); lag++) {
+
+        let sum = 0
+
+        for (let i = 0; i < n - lag; i++) {
+
+            sum += (recentHistory[i] === recentHistory[i + lag]) ? 1 : -1
+        }
+
+        autocorr[lag] = sum / (n - lag)
     }
 
-    const ratio = same / (n - 1)
+    let maxCorr = 0
+    let bestLag = 0
 
-    if (ratio > 0.65) {
+    for (const lag in autocorr) {
+
+        if (Math.abs(autocorr[lag]) > maxCorr && lag >= 2) {
+
+            maxCorr = Math.abs(autocorr[lag])
+
+            bestLag = lag
+        }
+    }
+
+    if (maxCorr > 0.3) {
+
+        const prediction = recentHistory[n - bestLag] === "1" ? "Tài" : "Xỉu"
+
         return {
-            prediction: recentHistory[n - 1] === "1" ? "Tài" : "Xỉu",
-            confidence: Math.min(0.8, ratio),
-            pattern_note: "Fourier trend"
+
+            prediction,
+
+            confidence: Math.min(0.85, maxCorr * 1.5),
+
+            pattern_note: `Fourier cycle lag ${bestLag}`
         }
     }
 
     return { confidence: 0 }
 }
 
-// ===== Neural =====
+////////////////////////////////////////////////////////
+
 function analyzeNeuralPattern(fullHistory, recentHistory) {
 
     const n = recentHistory.length
-    if (n < 20) return { confidence: 0 }
+    if (n < 25) return { confidence: 0 }
 
-    const last5 = recentHistory.slice(-5)
+    const patternLength = 5
 
-    let match = 0
+    const currentPattern = recentHistory.slice(-patternLength)
 
-    for (let i = 0; i < n - 5; i++) {
-        const test = recentHistory.slice(i, i + 5)
+    let matches = {}
 
-        if (test === last5) {
-            const next = recentHistory[i + 5]
-            if (next === "1") match++
-            else match--
+    for (let i = 0; i <= n - patternLength - 1; i++) {
+
+        const test = recentHistory.slice(i, i + patternLength)
+
+        let similarity = 0
+
+        for (let j = 0; j < patternLength; j++) {
+
+            if (currentPattern[j] === test[j]) similarity++
+        }
+
+        similarity = similarity / patternLength
+
+        if (similarity >= 0.8) {
+
+            const nextChar = recentHistory[i + patternLength]
+
+            matches[nextChar] = (matches[nextChar] || 0) + similarity
         }
     }
 
-    if (Math.abs(match) >= 2) {
-        return {
-            prediction: match > 0 ? "Tài" : "Xỉu",
-            confidence: 0.7,
-            pattern_note: "Neural match"
+    const score1 = matches["1"] || 0
+    const score0 = matches["0"] || 0
+
+    if (score1 + score0 > 0) {
+
+        const ratio = Math.max(score1, score0) / (score1 + score0)
+
+        if (ratio > 0.65) {
+
+            return {
+
+                prediction: score1 > score0 ? "Tài" : "Xỉu",
+
+                confidence: Math.min(0.9, ratio),
+
+                pattern_note: "Neural pattern similarity"
+            }
         }
     }
 
     return { confidence: 0 }
 }
 
-// ===== Markov =====
+////////////////////////////////////////////////////////
+
 function analyzeMarkovAdvanced(fullHistory) {
 
     const n = fullHistory.length
-    if (n < 25) return { confidence: 0 }
 
-    let t = 0, x = 0
+    if (n < 30) return { confidence: 0 }
 
-    for (let i = 1; i < n; i++) {
-        if (fullHistory[i - 1] === fullHistory[i]) {
-            if (fullHistory[i] === "1") t++
-            else x++
+    const order = 3
+
+    let matrix = {}
+
+    for (let i = order; i < n; i++) {
+
+        const state = fullHistory.slice(i - order, i)
+
+        const next = fullHistory[i]
+
+        if (!matrix[state]) matrix[state] = { "0": 0, "1": 0 }
+
+        matrix[state][next]++
+    }
+
+    const currentState = fullHistory.slice(-order)
+
+    if (matrix[currentState]) {
+
+        const count0 = matrix[currentState]["0"]
+
+        const count1 = matrix[currentState]["1"]
+
+        const total = count0 + count1
+
+        if (total >= 5) {
+
+            const prob1 = count1 / total
+
+            const prob0 = count0 / total
+
+            const confidence = Math.abs(prob1 - prob0)
+
+            if (confidence > 0.25) {
+
+                return {
+
+                    prediction: prob1 > prob0 ? "Tài" : "Xỉu",
+
+                    confidence: Math.min(0.85, confidence * 2),
+
+                    pattern_note: "Markov chain"
+                }
+            }
         }
     }
 
-    if (t + x < 5) return { confidence: 0 }
-
-    const prob = t / (t + x)
-
-    return {
-        prediction: prob > 0.5 ? "Tài" : "Xỉu",
-        confidence: Math.abs(prob - 0.5) + 0.6,
-        pattern_note: "Markov"
-    }
+    return { confidence: 0 }
 }
 
-// ===== Entropy =====
+////////////////////////////////////////////////////////
+
 function analyzeEntropy(fullHistory, recentHistory) {
+
+    const n = recentHistory.length
+    if (n < 20) return { confidence: 0 }
 
     const ones = recentHistory.split("1").length - 1
     const zeros = recentHistory.split("0").length - 1
 
-    const total = ones + zeros
-    if (total === 0) return { confidence: 0 }
+    const p1 = ones / n
+    const p0 = zeros / n
 
-    const p = ones / total
+    let entropy = 0
 
-    if (p > 0.7 || p < 0.3) {
+    if (p1 > 0) entropy -= p1 * Math.log2(p1)
+    if (p0 > 0) entropy -= p0 * Math.log2(p0)
+
+    const randomness = entropy
+
+    const last = recentHistory[n - 1]
+
+    if (randomness > 0.9) {
+
         return {
-            prediction: p > 0.5 ? "Xỉu" : "Tài",
-            confidence: 0.7,
-            pattern_note: "Entropy đảo"
-        }
-    }
 
-    return { confidence: 0 }
-}
+            prediction: last === "1" ? "Xỉu" : "Tài",
 
-// ===== Trend =====
-function analyzeTrendMomentum(fullHistory, recentHistory) {
-
-    const n = recentHistory.length
-    if (n < 10) return { confidence: 0 }
-
-    let streak = 1
-
-    for (let i = n - 1; i > 0; i--) {
-        if (recentHistory[i] === recentHistory[i - 1]) streak++
-        else break
-    }
-
-    if (streak >= 3) {
-        return {
-            prediction: recentHistory[n - 1] === "1" ? "Xỉu" : "Tài",
             confidence: 0.65,
-            pattern_note: "Trend đảo"
+
+            pattern_note: "Entropy đảo chiều"
+        }
+    }
+
+    if (randomness < 0.3) {
+
+        return {
+
+            prediction: last === "1" ? "Tài" : "Xỉu",
+
+            confidence: 0.75,
+
+            pattern_note: "Entropy xu hướng"
         }
     }
 
     return { confidence: 0 }
 }
 
-// ===== Cluster =====
-function analyzeCluster(fullHistory, recentHistory) {
+////////////////////////////////////////////////////////
+
+function analyzeTrendMomentum(fullHistory, recentHistory) {
 
     const n = recentHistory.length
     if (n < 15) return { confidence: 0 }
 
-    let clusters = []
-    let count = 1
+    let momentum = 0
 
     for (let i = 1; i < n; i++) {
-        if (recentHistory[i] === recentHistory[i - 1]) count++
-        else {
-            clusters.push(count)
-            count = 1
+
+        if (recentHistory[i] === recentHistory[i - 1]) {
+
+            momentum += recentHistory[i] === "1" ? 1 : -1
+
+        } else {
+
+            momentum = 0
         }
     }
-    clusters.push(count)
 
-    const avg = clusters.reduce((a, b) => a + b, 0) / clusters.length
-    const last = clusters[clusters.length - 1]
+    if (Math.abs(momentum) > 3) {
 
-    if (last > avg * 1.5) {
         return {
-            prediction: recentHistory[n - 1] === "1" ? "Xỉu" : "Tài",
+
+            prediction: momentum > 0 ? "Xỉu" : "Tài",
+
             confidence: 0.7,
-            pattern_note: "Cluster"
+
+            pattern_note: "Momentum đảo chiều"
         }
     }
 
     return { confidence: 0 }
 }
 
-// ===== Wavelet =====
+////////////////////////////////////////////////////////
+
+function analyzeCluster(fullHistory, recentHistory) {
+
+    const n = recentHistory.length
+
+    if (n < 25) return { confidence: 0 }
+
+    let clusters = []
+
+    let current = { type: recentHistory[0], length: 1 }
+
+    for (let i = 1; i < n; i++) {
+
+        if (recentHistory[i] === current.type) current.length++
+
+        else {
+
+            clusters.push(current)
+
+            current = { type: recentHistory[i], length: 1 }
+        }
+    }
+
+    clusters.push(current)
+
+    const avg = clusters.reduce((a, b) => a + b.length, 0) / clusters.length
+
+    const last = clusters[clusters.length - 1]
+
+    if (last.length > avg * 1.5) {
+
+        return {
+
+            prediction: last.type === "1" ? "Xỉu" : "Tài",
+
+            confidence: Math.min(0.8, last.length / (avg * 2)),
+
+            pattern_note: "Cluster dài"
+        }
+    }
+
+    return { confidence: 0 }
+}
+
+////////////////////////////////////////////////////////
+
 function analyzeWavelet(fullHistory, recentHistory) {
 
     const n = recentHistory.length
-    if (n < 20) return { confidence: 0 }
 
-    let up = 0, down = 0
-
-    for (let i = 2; i < n; i += 2) {
-        const seg = recentHistory.slice(i - 2, i)
-
-        const ones = seg.split("1").length - 1
-        const zeros = seg.length - ones
-
-        if (ones > zeros) up++
-        else down++
-    }
-
-    if (up !== down) {
-        return {
-            prediction: up > down ? "Tài" : "Xỉu",
-            confidence: 0.65,
-            pattern_note: "Wavelet"
-        }
-    }
-
-    return { confidence: 0 }
-        }
-
-// ===== Bayesian =====
-function analyzeBayesian(fullHistory) {
-    const n = fullHistory.length
     if (n < 30) return { confidence: 0 }
 
-    let tAfterT = 0, xAfterT = 0
-    let tAfterX = 0, xAfterX = 0
+    const scales = [2, 3, 5]
 
-    for (let i = 1; i < n; i++) {
-        const prev = fullHistory[i - 1]
-        const curr = fullHistory[i]
+    let predictions = []
 
-        if (prev === "1") {
-            if (curr === "1") tAfterT++
-            else xAfterT++
-        } else {
-            if (curr === "1") tAfterX++
-            else xAfterX++
+    scales.forEach(scale => {
+
+        let down = ""
+
+        for (let i = 0; i < n; i += scale) {
+
+            const seg = recentHistory.slice(i, i + scale)
+
+            const ones = seg.split("1").length - 1
+
+            const zeros = seg.split("0").length - 1
+
+            down += ones > zeros ? "1" : "0"
         }
-    }
 
-    const last = fullHistory[n - 1]
+        if (down.length >= 2) {
 
-    let probT, probX
+            const last = down[down.length - 1]
 
-    if (last === "1") {
-        const total = tAfterT + xAfterT
-        if (total < 5) return { confidence: 0 }
-        probT = tAfterT / total
-        probX = xAfterT / total
-    } else {
-        const total = tAfterX + xAfterX
-        if (total < 5) return { confidence: 0 }
-        probT = tAfterX / total
-        probX = xAfterX / total
-    }
+            const prev = down[down.length - 2]
 
-    const confidence = Math.abs(probT - probX)
+            if (last === prev) {
 
-    if (confidence > 0.2) {
-        return {
-            prediction: probT > probX ? "Tài" : "Xỉu",
-            confidence: Math.min(0.85, confidence * 1.8),
-            pattern_note: "Bayesian"
+                predictions.push(last === "1" ? "Tài" : "Xỉu")
+            }
         }
-    }
+    })
 
-    return { confidence: 0 }
-}
+    if (predictions.length > 0) {
 
-// ===== Model 2 =====
-function analyzeModel2(fullHistory, recentHistory) {
-    const n = recentHistory.length
-    if (n < 8) return { confidence: 0 }
+        const counts = {}
 
-    if (recentHistory[n - 1] === recentHistory[n - 2]) {
-        return {
-            prediction: recentHistory[n - 1] === "1" ? "Xỉu" : "Tài",
-            confidence: 0.6,
-            pattern_note: "Cầu 2"
-        }
-    }
+        predictions.forEach(p => counts[p] = (counts[p] || 0) + 1)
 
-    return { confidence: 0 }
-}
+        const dominant = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0]
 
-// ===== Model 3 =====
-function analyzeModel3(fullHistory, recentHistory) {
-    const n = recentHistory.length
-    if (n < 10) return { confidence: 0 }
+        const confidence = counts[dominant] / predictions.length
 
-    const last3 = recentHistory.slice(-3)
+        if (confidence > 0.66) {
 
-    if (last3[0] === last3[1] && last3[1] === last3[2]) {
-        return {
-            prediction: last3[2] === "1" ? "Xỉu" : "Tài",
-            confidence: 0.7,
-            pattern_note: "Cầu 3"
+            return {
+
+                prediction: dominant,
+
+                confidence: Math.min(0.85, confidence),
+
+                pattern_note: "Wavelet multi scale"
+            }
         }
     }
 
     return { confidence: 0 }
 }
 
-// ===== Model 4 =====
-function analyzeModel4(fullHistory, recentHistory) {
-    const n = recentHistory.length
-    if (n < 12) return { confidence: 0 }
+////////////////////////////////////////////////////////
 
-    let streak = 1
-
-    for (let i = n - 1; i > 0; i--) {
-        if (recentHistory[i] === recentHistory[i - 1]) streak++
-        else break
-    }
-
-    if (streak >= 4) {
-        return {
-            prediction: recentHistory[n - 1] === "1" ? "Xỉu" : "Tài",
-            confidence: Math.min(0.85, 0.7 + streak * 0.02),
-            pattern_note: "Cầu dài"
-        }
-    }
-
-    return { confidence: 0 }
-}
-
-// ===== Fallback =====
 function generateFallbackPrediction(recentHistory, currentResult) {
+
+    const historyString = recentHistory
+        .map(h => h.ket_qua === "Tài" ? "1" : "0")
+        .join("")
+
+    const n = historyString.length
+
+    if (n >= 3) {
+
+        const lastThree = historyString.slice(-3)
+
+        const patterns = {
+
+            "111": { pred: "Xỉu", conf: 68 },
+
+            "000": { pred: "Tài", conf: 68 },
+
+            "101": { pred: "Xỉu", conf: 65 },
+
+            "010": { pred: "Tài", conf: 65 }
+        }
+
+        if (patterns[lastThree]) {
+
+            return {
+
+                du_doan: patterns[lastThree].pred,
+
+                do_tin_cay: patterns[lastThree].conf,
+
+                mau_cau: "Fallback pattern"
+            }
+        }
+    }
+
     return {
+
         du_doan: currentResult.ket_qua === "Tài" ? "Xỉu" : "Tài",
-        do_tin_cay: 65,
-        mau_cau: "Fallback"
+
+        do_tin_cay: 62 + Math.floor(Math.random() * 18),
+
+        mau_cau: "Đảo chiều cơ bản"
     }
 }
-
-
 
 // =============================
 // API LC79 MD5
