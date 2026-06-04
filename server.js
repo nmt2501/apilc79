@@ -1256,7 +1256,7 @@ app.get("/api/taixiumd5/lc79", async () => {
 
     if (!lastResult || !currentPrediction) {
         return {
-            id: "Tùng X Bi",
+            id: "LC79 MD5",
             phien_truoc: null,
             xuc_xac1: null,
             xuc_xac2: null,
@@ -1271,7 +1271,7 @@ app.get("/api/taixiumd5/lc79", async () => {
     }
 
     return {
-        id: "Tùng X Bi",
+        id: "LC79 MD5",
         phien_truoc: lastResult.session,
         xuc_xac1: lastResult.dice[0],
         xuc_xac2: lastResult.dice[1],
@@ -1341,7 +1341,7 @@ Stack: ${err.stack}
         console.error("❌ Lỗi lấy public IP:", e.message);
     }
 
-    console.log("\nPattern Master đã khởi động!");
+    console.log("\n🚀 AI Tài Xỉu MD5 Pro - Pattern Master đã khởi động!");
     console.log(`   ➜ Local:   http://localhost:${PORT}/`);
     console.log(`   ➜ Network: http://${publicIP}:${PORT}/\n`);
     console.log("📌 Các API endpoints:");
